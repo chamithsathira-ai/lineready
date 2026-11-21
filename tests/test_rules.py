@@ -62,3 +62,11 @@ def test_policy_linter():
     assert lint("The root cause is the safety valve.")
     assert lint("You can defer this item.")
     assert not lint("TSM 32-42-00-810-923-A lists the safety valves as possible causes to isolate.")
+
+
+def test_effectivity():
+    from lineready.domain.rules.effectivity import applies
+    assert applies(336, "001999") is True
+    assert applies(336, "051100 151200 203302 305337") is True      # inside 305-337
+    assert applies(338, "051100 151200 203302 305337") is False
+    assert applies(None, "001999") is None and applies(336, "") is None

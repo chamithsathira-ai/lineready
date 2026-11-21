@@ -39,12 +39,15 @@ When finished, reply with the final JSON only."""
 TOOLS = [
     {"name": "find_tsm_tasks", "strict": True,
      "description": "Find TSM troubleshooting tasks for a fault message or defect text. Uses the TSM fault index, "
-                    "the fleet's history of which tasks engineers used, and text search.",
-     "input_schema": {"type": "object", "additionalProperties": False, "required": ["text", "ata"],
+                    "the fleet's history of which tasks engineers used, and meaning-based search. Give the aircraft "
+                    "registration when known: tasks whose effectivity excludes it are removed.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": ["text", "ata", "reg"],
                       "properties": {"text": {"type": "string", "description": "ECAM/CMS message or defect text"},
-                                     "ata": {"type": "string", "description": "ATA like '34-52' or '' if unknown"}}}},
+                                     "ata": {"type": "string", "description": "ATA like '34-52' or '' if unknown"},
+                                     "reg": {"type": "string", "description": "e.g. A6-AOJ, or '' if unknown"}}}},
     {"name": "get_tsm_task", "strict": True,
-     "description": "Read one TSM task: title, possible causes, referenced AMM tasks and the start of the procedure.",
+     "description": "Read one TSM or AMM task: title, possible causes (TSM), referenced AMM tasks, tools and "
+                    "expendable parts (AMM), and the start of the procedure.",
      "input_schema": {"type": "object", "additionalProperties": False, "required": ["task_id"],
                       "properties": {"task_id": {"type": "string", "description": "e.g. 32-42-00-810-923-A"}}}},
     {"name": "aircraft_history", "strict": True,
@@ -84,8 +87,9 @@ def _wo(w: dict) -> dict:
 def run_tool(name: str, args: dict) -> list[dict] | dict:
     if name == "find_tsm_tasks":
         out = []
+        ac = search.aircraft((args.get("reg") or "").upper()) if args.get("reg") else None
         for h in search.tsm_candidates(args["text"], args["text"], args.get("ata") or None,
-                                       before=settings.demo_now.date()):
+                                       before=settings.demo_now.date(), cec=ac["cec"] if ac else None):
             t = search.task(h["task_id"])
             if t:
                 out.append({"id": f"tsm:{t['task_id']}", "title": t["title"], "found_by": h["match"],
@@ -94,7 +98,12 @@ def run_tool(name: str, args: dict) -> list[dict] | dict:
     if name == "get_tsm_task":
         t = search.task(args["task_id"].strip())
         if not t:
-            return {"error": "task not found in controlled TSM"}
+            a = search.amm_task(args["task_id"].strip())
+            if not a:
+                return {"error": "task not found in the controlled TSM or AMM"}
+            return {"id": f"amm:{a['task_id']}", "title": a["title"], "revision": f"AMM TSN 86 {a['revdate']}",
+                    "effectivity": a["effrg"], "tools": a["tools"][:8], "expendable_parts": a["parts"][:8],
+                    "procedure_start": (a["body"] or "")[:1200]}
         return {"id": f"tsm:{t['task_id']}", "title": t["title"], "revision": f"{t['revision']} {t['revdate']}",
                 "effectivity": t["effrg"], "possible_causes": t["causes"][:8],
                 "referenced_tasks": t["refs"][:8], "procedure_start": (t["body"] or "")[:1200]}

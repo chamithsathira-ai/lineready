@@ -9,83 +9,62 @@ to its source record.
 to AMOS. Every flag names its rule, every reference shows the manual revision (TSM TSN 86, 01-Nov-2026),
 every review action is written to a hash-chained audit log.
 
-## Run it
+## Run it (laptop / build machine)
 
 Needs Docker only (no Python on the host). The data pack folders `01 Core` and `02 Supplementary` must sit
-next to this folder (`../01 Core`).
+next to this folder (`../01 Core`), or set `DATA_CORE_DIR` / `DATA_SUPP_DIR` in `.env`.
 
 ```bash
 cp .env.example .env                 # optional: add ANTHROPIC_API_KEY to switch on AI summaries + verifier
-docker compose build
-docker compose up -d db
-docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min, TSM parse is most of it
-docker compose run --rm app python -m lineready.interfaces.cli ingest cases  # fleet case memory
-docker compose run --rm app python -m lineready.interfaces.cli seed-shift    # synthetic SHJ night (see below)
-docker compose up -d app
-open http://localhost:8000
+./scripts/build_kb.sh                # parses the pack, embeddings, demo shift; writes kb/lineready-kb-<date>.dump
+docker compose up -d app web         # API on 127.0.0.1:8000, UI on http://localhost:3000
 ```
 
-Then the tablet UI (Next.js, in `web/`, Node 18.18+). Set `LINEREADY_API_URL` **before** `npm run build`: the browser proxy
-(`/backend/*` → FastAPI) is fixed at build time.
+For UI work without Docker (Node 18.18+):
 
 ```bash
 cd web
-cp .env.local.example .env.local     # LINEREADY_API_URL=http://localhost:8000
-npm install
-npm run build && npm start           # or: npm run dev
-open http://localhost:3000            # Tonight, Dossier, Manuals, Ask, Readiness, Coach, Logbook, Aircraft
+cp .env.local.example .env.local     # LINEREADY_API_URL=http://localhost:8000 (leave unset for sample data)
+npm install && npm run dev           # http://localhost:3000
 ```
 
-Without `LINEREADY_API_URL` the UI runs on its built-in sample data (good for design work, no backend needed).
-
+The browser reaches the API through the UI's `/backend/*` route, which reads `LINEREADY_API_URL` at request time.
 `http://localhost:8000` still serves the simple built-in UI for quick checks.
 
-## Deploy on the demo server (web on 8080, API on 8888, Postgres on 5432)
+## Deploy on the demo server (plain Docker: web on 8080, API on 8888, Postgres on 5432)
 
-One-time setup, from the repo folder on the server (needs Docker with the compose plugin, Node 18.18+, and the
-data pack folders `01 Core` and `02 Supplementary`):
+`docker-compose.server.yml` runs the slim images (Alpine Postgres + pgvector, API runtime image, UI, pack builder),
+all with `restart: unless-stopped`. The raw data pack never goes to the server: it gets the knowledge-base file
+from `scripts/build_kb.sh`.
+
+On the server, once:
 
 ```bash
+sudo systemctl enable --now docker
+git clone https://github.com/chamithsathira-ai/lineready.git && cd lineready     # or: git pull
 cp .env.example .env
 cat >> .env <<'ENV'
-DB_PORT=5432
+COMPOSE_FILE=docker-compose.server.yml
+WEB_PORT=8080
 API_PORT=8888
-DATA_CORE_DIR=/path/to/01 Core
-DATA_SUPP_DIR=/path/to/02 Supplementary
+DB_PORT=5432
 ENV
-# optional: ANTHROPIC_API_KEY=... in .env for AI summaries, Ask and Coach feedback
-
+# optional: ANTHROPIC_API_KEY=... in .env
 docker compose build
 docker compose up -d db
-docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min
-docker compose run --rm app python -m lineready.interfaces.cli ingest cases
-docker compose run --rm app python -m lineready.interfaces.cli seed-shift
-docker compose up -d app                                                      # API on 127.0.0.1:8888
-curl localhost:8888/api/health
-
-cd web
-echo "LINEREADY_API_URL=http://127.0.0.1:8888" > .env.local
-npm ci && npm run build
-npm start -- -p 8080                                                          # or your existing process manager
 ```
 
-After each `git pull`: `docker compose up -d app` (the API reloads code on its own), then in `web/`
-`npm ci && npm run build` and restart the web process. Re-run `ingest` only when the data pack changes.
-The database and API ports bind to 127.0.0.1 only; the browser reaches the API through the web app's `/backend/*` proxy.
-
-Useful commands:
+Load the knowledge base (copy the `.dump` and `.dump.sha256` to the server, then):
 
 ```bash
-docker compose exec app python -m lineready.interfaces.cli brief E1   # build a brief from the CLI
-docker compose exec app python -m pytest -q tests                      # rule unit tests
-docker compose exec app python -m evals.backtest_tsm 600               # retrieval accuracy backtest
-curl localhost:8000/api/audit                                          # audit chain check
+./scripts/restore_kb.sh ~/lineready-kb-<date>.dump      # ~1 min; keeps reviews/audit on later updates
+rm ~/lineready-kb-<date>.dump                            # free the disk
+docker compose up -d                                     # db + API + web + packs
+curl localhost:8888/api/readyz
 ```
 
-Without `ANTHROPIC_API_KEY` the system runs in **template mode**: everything works, summaries are built
-from the facts by code. With a key, Claude (`claude-opus-5-5`) writes the summary line and an independent
-Claude verifier checks each sentence against its evidence (review gates R1–R3); unsupported sentences are
-removed and listed under "Removed by review".
+Open http://92.5.94.202:8080. After each `git pull`: `docker compose up -d --build`.
+Postgres and the API bind to 127.0.0.1; only the UI port is public. For Kubernetes, see `deploy/README.md`.
 
 ## Features
 
@@ -154,10 +133,29 @@ Coverage is deliberately below 100%: when no confident match exists the brief sa
 * A6-AQP MAREP 6204647: deferral limit from the action text passed on 20-Oct-2026 and the WO is still open.
 * A6-ARE MAREP 6337181: MEL 33-20-01-A Cat C, due 22-Nov-2026; the LED unit used on past fixes is in SHJMAIN.
 
+## Built since Round 1
+
+* **Effectivity by serial number:** the TSM's own fleet table (registration -> MSN -> CEC, 92 aircraft) filters out
+  tasks that do not apply to the aircraft, and dossiers state "applies to A6-AOJ (MSN 06665, CEC 335)".
+* **AMM and IPC parsed:** 11,594 AMM tasks (tools, consumables, expendable parts) and 332,547 IPC items. Readiness
+  follows TSM -> AMM -> IPC part numbers (with alternatives) -> station stock and tool store.
+* **Meaning-based search:** BGE-small embeddings (local, free) added to keyword + trigram + fleet memory with RRF.
+  Backtest recall@3 40.9% -> 45.0%. Built on the laptop; the server uses precomputed vectors and needs no model.
+* **Aircraft pack before landing:** built automatically 90 min before arrival (CronJob), rebuilt on new faults:
+  items, things to clear while on the ground, parts, tools, manual pages, last 7 days.
+* **End-of-shift handover:** drafted from the shift's reviews, logbook checks, open items and parts gaps; Claude
+  writes the "next shift first" lines with record citations; the engineer edits and saves.
+* **Voice questions:** browser speech recognition in Ask, plus read-aloud answers (on-premise speech is the
+  production option).
+
+## Small-server deployment
+
+Build the knowledge base on a laptop (`scripts/build_kb.sh`, one 185 MB file) and stream it into the server
+(`scripts/restore_kb.sh`). Server footprint ~1.75 GB including images. See `deploy/README.md`.
+
 ## Known limits / next steps
 
-* Effectivity: TSM effectivity ranges are shown, but a tail→MSN map is needed to filter them.
-* AMM/IPC SGML not yet parsed (TSM→AMM links come from the TSM itself).
-* Dense embeddings (BGE-M3 + pgvector) are the next retrieval step; current hybrid is lexical + trigram + RRF.
-* Voice input for Ask, aircraft pack before landing, handover draft (final round).
+* Login: put the Ingress behind corporate SSO.
 * REP-01/REP-02 thresholds must be confirmed against the company MOE/TPM.
+* Free-text Ask questions use keyword + fleet search on the server (no embedding model there).
+* Voice uses the browser's speech service; switch to on-premise speech for production.

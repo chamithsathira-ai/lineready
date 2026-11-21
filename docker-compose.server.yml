@@ -1,0 +1,73 @@
+# Demo server (plain Docker, no Kubernetes): serves only, no parsers or embedding model.
+# Put COMPOSE_FILE=docker-compose.server.yml in .env so plain `docker compose ...` uses this file.
+# Load data with scripts/restore_kb.sh (knowledge-base file built on a laptop with scripts/build_kb.sh).
+# Every service restarts after a reboot (also run: sudo systemctl enable docker).
+name: lineready
+
+services:
+  db:
+    build: ./deploy/postgres          # Alpine Postgres 16 + pgvector (smaller than the Debian image)
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lineready
+      POSTGRES_PASSWORD: lineready
+      POSTGRES_DB: lineready
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command: ["postgres", "-c", "max_wal_size=256MB", "-c", "min_wal_size=64MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lineready"]
+      interval: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      target: runtime                 # API only: 2 workers, no parsers, no model
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://lineready:lineready@db:5432/lineready
+      CACHE_DIR: /tmp/lineready
+    ports:
+      - "127.0.0.1:${API_PORT:-8888}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    environment:
+      LINEREADY_API_URL: http://app:8000   # read at request time by the /backend proxy
+    ports:
+      - "${WEB_PORT:-8080}:3000"           # the public demo link
+    depends_on:
+      - app
+
+  # Same job as the Kubernetes CronJob: build aircraft packs for aircraft landing within 90 minutes.
+  packs:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    command:
+      - python
+      - -c
+      - |
+        import time, urllib.request
+        while True:
+            try:
+                urllib.request.urlopen(urllib.request.Request("http://app:8000/api/packs/refresh", method="POST"), timeout=120)
+            except Exception as e:
+                print("packs refresh failed:", e, flush=True)
+            time.sleep(300)
+    depends_on:
+      - app
+
+volumes:
+  pgdata:

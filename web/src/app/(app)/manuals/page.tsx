@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ManualsPage({ searchParams }: { searchParams: Promise<{ task?: string }> }) {
   const { task } = await searchParams;
-  if (task) redirect(`/manuals/${task.toLowerCase().startsWith("tsm-") ? task : manualSlug(`TSM ${task}`)}`); // old ?task= links
+  if (task) redirect(`/manuals/${/^(tsm|amm)-/i.test(task) ? task.toLowerCase() : manualSlug(`TSM ${task}`)}`); // old ?task= links
   const tasks = await getManualTasks();
   return (
     <>

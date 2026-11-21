@@ -67,7 +67,9 @@ class Manuals:
 
     def run(self, d: Dossier, message: str | None, text: str, before: date | None = None) -> list[str]:
         """Fused retrieval: fault index + fleet case memory + guarded text search (see search.tsm_candidates)."""
-        hits = search.tsm_candidates(message, text, d.ata, before=before)
+        ac = search.aircraft(d.reg)
+        cec = ac["cec"] if ac else None
+        hits = search.tsm_candidates(message, text, d.ata, before=before, cec=cec)
         conf_for = {"exact": Confidence.EXACT, "prefix": Confidence.EXACT, "fuzzy": Confidence.VERIFIED}
         task_ids = []
         for h in hits[:3]:
@@ -112,12 +114,18 @@ class Manuals:
             d.references.append(Claim(
                 "No TSM fault-isolation task matched this item in the controlled TSM (TSN 86). "
                 "Use the applicable AMM or CMM procedure.", [], "information_only", Confidence.INFO))
-        if task_ids and d.evidence.get(f"tsm:{task_ids[0]}"):
+        if task_ids:
             eff = search.task(task_ids[0])["effrg"]
-            if eff and eff != "001999":
+            if ac:
                 d.references.append(Claim(
-                    f"Effectivity is restricted ({eff[:40]}…). Confirm against the aircraft MSN before use.",
-                    [f"tsm:{task_ids[0]}"], "information_only", Confidence.INFO))
+                    f"Effectivity checked for {d.reg} (MSN {ac['msn']}, CEC {ac['cec']:03d}, {ac['model']}): "
+                    f"TSM {task_ids[0]} applies; tasks that exclude this aircraft were removed.",
+                    [f"tsm:{task_ids[0]}"], "reference", Confidence.EXACT))
+            elif eff and eff != "001999":
+                d.references.append(Claim(
+                    f"Effectivity is restricted ({eff[:40]}…) and {d.reg} is not in the manual's fleet table. "
+                    "Confirm against the aircraft MSN before use.", [f"tsm:{task_ids[0]}"], "information_only",
+                    Confidence.INFO))
         return task_ids
 
 
@@ -128,7 +136,62 @@ class Logistics:
 
     STATION_STORES = ("SHJLINE", "SHJMAIN")
 
+    def from_manuals(self, d: Dossier, max_tasks: int = 3) -> None:
+        """TSM task -> referenced AMM tasks -> tools (TOOLNBR) and expendable parts (IPC CSN -> P/N) -> station stock.
+        Expendables are needed only if the job is done, so a shortfall is information, not a gap for the lead."""
+        ac = search.aircraft(d.reg)
+        cec = ac["cec"] if ac else None
+        amm_refs: list[str] = []
+        for eid in [e for e in d.evidence if e.startswith("tsm:")][:2]:
+            t = search.task(eid[4:])
+            amm_refs += [r["ref"] for r in (t["refs"] or []) if r["man"] == "AMM" and r["ref"] not in amm_refs]
+        for ref in amm_refs[:max_tasks]:
+            a = search.amm_task(ref, cec)
+            if not a:
+                continue
+            aid = d.add_evidence(Evidence(f"amm:{a['task_id']}", "AMM", f"AMM {a['task_id']} · {a['title']}",
+                                          excerpt=(a["body"] or "")[:300], revision=f"TSN 86 · {a['revdate']}"))
+            for tool in [t for t in (a["tools"] or []) if t.get("pn")][:2]:
+                found = search.tool_for(tool["pn"])
+                where = f"{len(found)} in tool store, e.g. {found[0]['store']} / {found[0]['location']}" if found \
+                    else "not found in the SHJ tool stores"
+                ids = [aid] + ([d.add_evidence(Evidence(f"tool:{found[0]['tool_id']}", "TOOLS",
+                                                        f"Tool {found[0]['pn']} {found[0]['description']}",
+                                                        f"store {found[0]['store']} location {found[0]['location']}"))]
+                               if found else [])
+                d.readiness.append(Claim(f"AMM {a['task_id']} needs tool {tool['pn']} ({tool['name']}): {where}.",
+                                         ids, "fact", Confidence.EXACT))
+            for part in (a["parts"] or [])[:3]:
+                items = search.ipc_parts(part["csn"])
+                if not items:
+                    continue
+                stocked = []
+                for it in items:
+                    lots = [l for l in search.stock_for(it["pn"]) if l["store"] in self.STATION_STORES
+                            and (l["cond"] or "") != "US" and (l["qty"] or 0) > 0]
+                    if lots:
+                        stocked.append((it, lots))
+                pns = ", ".join(it["pn"] + (" (alt)" if it["alternative"] else "") for it in items[:3])
+                iid = d.add_evidence(Evidence(f"ipc:{part['csn']}", "IPC", f"IPC {part['csn']} · {part['name']}",
+                                              excerpt=f"P/N {pns}; figure {items[0]['figure_title']}",
+                                              revision="TSN 86"))
+                if stocked:
+                    it, lots = stocked[0]
+                    sid = d.add_evidence(Evidence(f"stock:{it['pn']}", "STORES", f"Stock {it['pn']} {part['name']}",
+                                                  "; ".join(f"{l['store']} {l['location']} qty {l['qty']} cond {l['cond'] or '-'}"
+                                                            for l in lots[:3])))
+                    q = sum(float(l["qty"]) for l in lots)
+                    d.readiness.append(Claim(
+                        f"AMM {a['task_id']} expendable {part['name']} (IPC {part['csn']}): P/N {it['pn']}, "
+                        f"{q:g} serviceable in {lots[0]['store']}.", [aid, iid, sid], "fact", Confidence.EXACT))
+                else:
+                    d.readiness.append(Claim(
+                        f"AMM {a['task_id']} expendable {part['name']} (IPC {part['csn']}, P/N {pns}): none serviceable "
+                        f"in station stores. Needed only if the job is done.", [aid, iid], "information_only",
+                        Confidence.INFO))
+
     def run(self, d: Dossier) -> list[str]:
+        self.from_manuals(d)
         gaps = []
         pns: list[str] = []
         wo_ids = [eid[3:] for eid in d.evidence if eid.startswith("wo:")]

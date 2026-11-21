@@ -1,0 +1,55 @@
+# FastAPI backend: agents, retrieval, review layer, audit. Internal only (not exposed by the Ingress);
+# the UI reaches it through its /backend proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: lineready-api
+spec:
+  selector: { app.kubernetes.io/name: lineready-api }
+  ports: [{ name: http, port: 8000, targetPort: 8000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lineready-api
+spec:
+  replicas: 1   # small server; raise when there is room (stateless)
+  selector:
+    matchLabels: { app.kubernetes.io/name: lineready-api }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: lineready-api }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api
+          image: lineready-api
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom:
+            - configMapRef: { name: lineready-config }
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: lineready-secrets, key: DATABASE_URL } }
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: lineready-secrets, key: ANTHROPIC_API_KEY } }
+          readinessProbe:
+            httpGet: { path: /api/readyz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/healthz, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}

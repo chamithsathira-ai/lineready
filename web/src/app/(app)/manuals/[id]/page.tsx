@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ShieldCheck } from "lucide-react";
 import { getManualTask, LIVE } from "@/lib/api";
-import { manualRef } from "@/lib/manuals";
+import { manualRef, manualSlug } from "@/lib/manuals";
 import { ManualSteps } from "@/components/ManualSteps";
 import { Card } from "@/components/ui";
 
@@ -52,10 +52,47 @@ export default async function ManualTaskPage({
             <ul>
               {task.refs.map((r, n) => (
                 <li key={n}>
-                  <span className="t-data">
-                    {r.man} {r.ref}
-                  </span>{" "}
+                  {LIVE && r.man === "AMM" ? (
+                    <Link href={`/manuals/${manualSlug(`AMM ${r.ref}`)}${from ? `?from=${encodeURIComponent(from)}` : ""}`} className="t-data link">
+                      {r.man} {r.ref}
+                    </Link>
+                  ) : (
+                    <span className="t-data">
+                      {r.man} {r.ref}
+                    </span>
+                  )}{" "}
                   · {r.title}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {!!task.tools?.length && (
+          <Card>
+            <h2 className="t-heading">Tools and equipment</h2>
+            <ul>
+              {task.tools.map((t, n) => (
+                <li key={n}>
+                  {t.pn && <span className="t-data">{t.pn} </span>}
+                  {t.name}
+                  {t.qty ? ` · qty ${t.qty}` : ""}
+                  {t.in_store === true && " · in SHJ tool store"}
+                  {t.in_store === false && " · not found in SHJ tool store"}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {!!task.parts?.length && (
+          <Card>
+            <h2 className="t-heading">Expendable parts (IPC)</h2>
+            <ul>
+              {task.parts.map((p, n) => (
+                <li key={n}>
+                  {p.name} · IPC {p.csn}
+                  {p.pns?.length ? ` · P/N ${p.pns.join(", ")}` : ""}
+                  {p.in_stock === true && " · in station stock"}
+                  {p.in_stock === false && " · not in station stock"}
                 </li>
               ))}
             </ul>
@@ -64,7 +101,7 @@ export default async function ManualTaskPage({
         <ManualSteps key={task.id} steps={task.steps} />
         <p className="t-caption">
           {LIVE
-            ? "Steps are taken from the controlled TSM text. Follow the task in the manual system when you do the work."
+            ? `Steps are taken from the controlled ${task.doc ?? "TSM"} text. Follow the task in the manual system when you do the work.`
             : "Step text is shortened sample content. The full controlled task comes from the manual system."}
         </p>
       </div>

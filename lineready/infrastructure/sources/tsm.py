@@ -125,3 +125,17 @@ def format_ref(loc: str) -> str:
     if len(loc) == 12 and loc.isdigit():
         return f"{loc[0:2]}-{loc[2:4]}-{loc[4:6]}-{loc[6:9]}-{loc[9:12]}"
     return loc
+
+
+EFFDATA = re.compile(r"<EFFDATA>(.*?)</EFFDATA>", re.S)
+
+
+def fleet(s: str):
+    """Fleet allocation from the manual front matter: (reg, msn, cec, model, engine, line_nbr, operator)."""
+    seen = set()
+    for block in EFFDATA.findall(s[:3_000_000]):
+        f = {k: text(v) for k, v in re.findall(r"<(\w+)>(.*?)</\1>", block, re.S)}
+        reg = f.get("ACN")
+        if reg and reg not in seen and f.get("CEC", "").isdigit():
+            seen.add(reg)
+            yield (reg, f.get("MSNBR"), int(f["CEC"]), f.get("MODTYPE"), f.get("ESNBR"), f.get("LINENBR"), f.get("OPERATOR"))
