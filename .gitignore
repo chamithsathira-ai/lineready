@@ -1,6 +1,15 @@
-node_modules/
-.next/
-out/
-.env*.local
+.env
+var/
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+# frontend
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
 *.tsbuildinfo
 .DS_Store
+node_modules/
+.next/

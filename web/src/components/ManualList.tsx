@@ -17,14 +17,16 @@ export function ManualList({ tasks }: { tasks: ManualTask[] }) {
         <input type="search" placeholder="Filter by task number or title" aria-label="Filter manual tasks" value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
       {shown.map((t) => (
-        <Link key={t.id} href={`/manuals/${t.id}`} className="src">
+        <Link key={t.id} href={`/manuals/${t.id}${t.fromDossier ? `?from=${encodeURIComponent(t.fromDossier)}` : ""}`} className="src">
           <span className="ico ico-neutral">
             <BookOpen size={20} aria-hidden />
           </span>
           <span className="src-text">
             <span className="t-strong">{t.title}</span>
             <span className="t-caption">
-              <span className="t-data">{manualRef(t.id)}</span> · {t.steps.length} steps · {t.effectivity}
+              <span className="t-data">{manualRef(t.id)}</span>
+              {t.steps.length > 0 && ` · ${t.steps.length} steps`}
+              {t.effectivity && ` · ${t.effectivity}`}
             </span>
           </span>
           <span className="grow" />

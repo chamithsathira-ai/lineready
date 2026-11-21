@@ -1,66 +1,163 @@
-# LineReady
+# LineReady — Line Engineer Agent (Round 1)
 
-Shift brief and defect preparation assistant for aircraft line engineers (AI Hackathon · Use Case 4).
+The night-shift brief, ready before the engineer arrives. For each engineer: their aircraft and times,
+open defects, deferred/MEL items with deadlines, aircraft-reported faults, predictive (PHA) cases,
+the TSM task to start from, parts and tools readiness, and last shift's handover — every line linked
+to its source record.
 
-The engineer stays responsible for every maintenance decision. LineReady gathers, ranks and cites the information they need before they reach the aircraft.
+**Guardrails:** LineReady prepares and checks. It never signs, defers or releases. There is no write path
+to AMOS. Every flag names its rule, every reference shows the manual revision (TSM TSN 86, 01-Nov-2026),
+every review action is written to a hash-chained audit log.
 
-- **Design:** [Figma: LineReady – Line Engineer Assist UI](https://www.figma.com/design/UPUlKnMjZheSmb6Pcl6Z0O)
-- **Architecture:** `docs/LineReady-architecture.html` (layers, agents, retrieval, review layer)
+## Run it
 
-## Repository layout
+Needs Docker only (no Python on the host). The data pack folders `01 Core` and `02 Supplementary` must sit
+next to this folder (`../01 Core`).
 
-```
-lineready/
-├── web/                     # Tablet UI (Next.js 15 + React 19 + TypeScript)
-│   └── src/
-│       ├── app/
-│       │   ├── globals.css  # design tokens: Day + Night (Air Arabia-inspired white, charcoal, red)
-│       │   ├── layout.tsx   # Inter + IBM Plex Mono
-│       │   └── (app)/       # screens behind the navigation
-│       │       ├── tonight/      Shift plan: Next up, ground timeline, items by aircraft
-│       │       ├── dossier/[id]/ Defect dossier with Accept / Edit / Not relevant review
-│       │       ├── manuals/      Task list; manuals/[id] is the task viewer at controlled revision
-│       │       ├── ask/          Cited answers
-│       │       ├── readiness/    Shift-lead readiness board (acknowledge, reassign, resolve gaps)
-│       │       ├── coach/        Trainee practice: write a plan, then compare
-│       │       ├── aircraft/     Tonight's aircraft; aircraft/[tail] has items, history, parts
-│       │       └── api/          search and source-preview route handlers (mock data)
-│       ├── components/
-│       │   ├── ui/          # StatusBadge, Button, Card, SourceRow, Meter
-│       │   ├── shell/       # NavRail, ShiftHeader, SearchField, SourceSheet, ThemeToggle, AppState (role, reviews, gaps)
-│       │   ├── tonight/     # NextUpCard, GroundTimeline, AircraftGroups, side cards
-│       │   └── dossier/     # DossierView, ReviewBar
-│       └── lib/
-│           ├── types.ts     # ShiftBrief, BriefItem, Dossier, EvidenceRef …
-│           ├── api.ts       # mock data now, FastAPI for the brief when LINEREADY_API_URL is set
-│           └── mock/        # synthetic SHJ night shift + sample screen data
-└── api/                     # (next) FastAPI + LangGraph backend from the architecture doc
+```bash
+cp .env.example .env                 # optional: add ANTHROPIC_API_KEY to switch on AI summaries + verifier
+docker compose build
+docker compose up -d db
+docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min, TSM parse is most of it
+docker compose run --rm app python -m lineready.interfaces.cli ingest cases  # fleet case memory
+docker compose run --rm app python -m lineready.interfaces.cli seed-shift    # synthetic SHJ night (see below)
+docker compose up -d app
+open http://localhost:8000
 ```
 
-## Run the UI
-
-Requires Node.js 18.18 or newer.
+Then the tablet UI (Next.js, in `web/`, Node 18.18+). Set `LINEREADY_API_URL` **before** `npm run build`: the browser proxy
+(`/backend/*` → FastAPI) is fixed at build time.
 
 ```bash
 cd web
+cp .env.local.example .env.local     # LINEREADY_API_URL=http://localhost:8000
 npm install
-npm run dev
+npm run build && npm start           # or: npm run dev
+open http://localhost:3000            # Tonight, Dossier, Manuals, Ask, Readiness, Coach, Logbook, Aircraft
 ```
 
-Open http://localhost:3000 (redirects to `/tonight`). Day / Night mode and the role (engineer, shift lead, trainee) are under **Me** in the navigation. Night is the default between 19:00 and 07:00.
+Without `LINEREADY_API_URL` the UI runs on its built-in sample data (good for design work, no backend needed).
 
-To read from a backend instead of the mock data, create `web/.env.local`:
+`http://localhost:8000` still serves the simple built-in UI for quick checks.
+
+## Deploy on the demo server (web on 8080, API on 8888, Postgres on 5432)
+
+One-time setup, from the repo folder on the server (needs Docker with the compose plugin, Node 18.18+, and the
+data pack folders `01 Core` and `02 Supplementary`):
+
+```bash
+cp .env.example .env
+cat >> .env <<'ENV'
+DB_PORT=5432
+API_PORT=8888
+DATA_CORE_DIR=/path/to/01 Core
+DATA_SUPP_DIR=/path/to/02 Supplementary
+ENV
+# optional: ANTHROPIC_API_KEY=... in .env for AI summaries, Ask and Coach feedback
+
+docker compose build
+docker compose up -d db
+docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min
+docker compose run --rm app python -m lineready.interfaces.cli ingest cases
+docker compose run --rm app python -m lineready.interfaces.cli seed-shift
+docker compose up -d app                                                      # API on 127.0.0.1:8888
+curl localhost:8888/api/health
+
+cd web
+echo "LINEREADY_API_URL=http://127.0.0.1:8888" > .env.local
+npm ci && npm run build
+npm start -- -p 8080                                                          # or your existing process manager
+```
+
+After each `git pull`: `docker compose up -d app` (the API reloads code on its own), then in `web/`
+`npm ci && npm run build` and restart the web process. Re-run `ingest` only when the data pack changes.
+The database and API ports bind to 127.0.0.1 only; the browser reaches the API through the web app's `/backend/*` proxy.
+
+Useful commands:
+
+```bash
+docker compose exec app python -m lineready.interfaces.cli brief E1   # build a brief from the CLI
+docker compose exec app python -m pytest -q tests                      # rule unit tests
+docker compose exec app python -m evals.backtest_tsm 600               # retrieval accuracy backtest
+curl localhost:8000/api/audit                                          # audit chain check
+```
+
+Without `ANTHROPIC_API_KEY` the system runs in **template mode**: everything works, summaries are built
+from the facts by code. With a key, Claude (`claude-opus-5-5`) writes the summary line and an independent
+Claude verifier checks each sentence against its evidence (review gates R1–R3); unsupported sentences are
+removed and listed under "Removed by review".
+
+## Features
+
+| View | What it does | Claude usage |
+|---|---|---|
+| **Brief** | Ranked dossiers per engineer, pinned attention item, evidence drawer with TSM task at revision, accept/edit/dismiss | Top 5 items per brief get an AI summary + independent critic (`LLM_NARRATE_TOP`) |
+| **Ask** | Questions answered with tools over the controlled data; every citation must come from a tool result | Tool-use loop, max 4 rounds, last 3 Q/A kept as short-term memory |
+| **Coach** | Trainee prepares a defect (TSM task, history, parts); graded against the hidden dossier; Socratic feedback; answer key unlocks when the task is right | 1 low-effort call per submission |
+| **Logbook check** | Rules LOG-01..07 on a draft entry (task cited and verified in TSM, revision, P/N+S/N, torque tool cal, test result); optional AI deep check vs the TSM outline | None by default; 1 call if "deep check" ticked |
+
+### Token controls
+
+* Response cache (`llm_cache` table): identical prompts are never paid twice, so rebuilding a brief is free unless data changed.
+* `LLM_NARRATE_TOP=5`: only the top items of a brief are narrated; the rest use code templates.
+* Compact evidence packs (ids + short excerpts), never raw documents; Claude prompt caching on frozen system prompts.
+* Measured: one brief = 10 calls (5 narrator + 5 critic) ≈ 4k output tokens; one Ask ≈ 1.2k output tokens.
+
+## What is real and what is synthetic
+
+| Real (data pack) | Synthetic (not in the pack) |
+|---|---|
+| 209,421 AMOS work orders, 62k stock lines, 12k tools | Flight schedule, stands, outbound flights |
+| 375,894 AVIATAR fault events, 199 PHA cases | Engineer roster (Engineer A/B/C) |
+| TSM SGML: 9,125 tasks, 55,680 fault-index rows | Handover notes (derived from real WOs, labelled) |
+
+The demo clock is `DEMO_NOW=2026-11-20T21:00` (the pack ends 20-Nov 06:10).
+
+## Architecture (as built)
 
 ```
-LINEREADY_API_URL=http://localhost:8000
+lineready/
+  domain/           pure model + rules (deadline, repetitive, policy linter, rule registry)
+  application/      orchestrator (supervisor DAG), agents: triage, specialists
+                    (historian, manuals, logistics, compliance), review (narrator + critic)
+  retrieval/        cascade: exact fault index -> fleet case memory -> guarded text search, fused by RRF
+  infrastructure/   sources (AMOS xlsx, AVIATAR csv, TSM SGML), Postgres, audit chain, Claude adapter
+  interfaces/       FastAPI (+ simple built-in UI), CLI
+web/                Next.js tablet UI (see web/README.md): adapter in src/lib/backend.ts, data access in src/lib/api.ts
+docs/               architecture document
+evals/              TSM retrieval backtest
+tests/              rule unit tests on real AMOS texts
 ```
 
-The UI then calls `GET /brief/current` and expects the `ShiftBrief` shape in `src/lib/types.ts`.
+Agents per aircraft (parallel): **Compliance** (deferral/MEL deadlines from AMOS free text) →
+**Triage** (AVIATAR messages → episodes, REP-01, fleet-wide baseline) → **Manuals** (fault index, fleet
+memory, TSM possible causes, referenced AMM tasks) → **Historian** (tail history, fleet cases, telemetry
+outcome: did the fault come back after the fix?) → **Logistics** (part/tool numbers from past fixes →
+stores) → **Review** (R1 schema, R2 evidence IDs, R3 policy linter + Claude critic) → rank, pin, notify lead.
 
-## UI rules carried over from the design
+## Measured results (backtest, 587 historical defects whose actions cite a TSM task, no look-ahead)
 
-- Every AI claim shows at least one source. No source means no claim.
-- No sign, defer or release actions anywhere in the UI. Review is Accept, Edit or Not relevant.
-- Touch targets are at least 48 px for gloved use.
-- Status is always colour + icon + word. Red means act before departure and nothing else; amber = for information / predictive, green = ready or exact controlled-source match, violet = training. Primary buttons are charcoal.
-- Navigation depends on role: engineers see Tonight, Aircraft, Ask, Manuals; shift leads add Readiness; trainees see Coach.
+| | recall@1 | recall@3 | precision@3 (answered) | coverage |
+|---|---|---|---|---|
+| fault index + text search only | 7.7% | 14.5% | 25.1% | 58% |
+| + fleet case memory (current) | **28.3%** | **40.4%** | **47.6%** | 85% |
+
+Coverage is deliberately below 100%: when no confident match exists the brief says
+"No TSM fault-isolation task matched" instead of guessing.
+
+## Findings from the data worth showing the judges
+
+* Fleet-wide messages: `MMR1 2(40RT1 2)/ATC1`, `NAV ADS-B RPTG 1/2 FAULT`, `NAV GPS1/2 FAULT` appear on
+  79–84 of 97 active tails in 72 h. Triage reports them once as a fleet pattern instead of flagging every tail.
+* WO 6185232 (A6-AQL) was extended for 120 days on 31-Oct-2026: the latest action wins. An earlier reading
+  of only the first extension would have flagged it as expired by mistake.
+* A6-AQP MAREP 6204647: deferral limit from the action text passed on 20-Oct-2026 and the WO is still open.
+* A6-ARE MAREP 6337181: MEL 33-20-01-A Cat C, due 22-Nov-2026; the LED unit used on past fixes is in SHJMAIN.
+
+## Known limits / next steps
+
+* Effectivity: TSM effectivity ranges are shown, but a tail→MSN map is needed to filter them.
+* AMM/IPC SGML not yet parsed (TSM→AMM links come from the TSM itself).
+* Dense embeddings (BGE-M3 + pgvector) are the next retrieval step; current hybrid is lexical + trigram + RRF.
+* Voice input for Ask, aircraft pack before landing, handover draft (final round).
+* REP-01/REP-02 thresholds must be confirmed against the company MOE/TPM.

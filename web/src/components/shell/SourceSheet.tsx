@@ -33,7 +33,7 @@ export function SourceSheetProvider({ children }: { children: ReactNode }) {
     if (!open) return;
     let alive = true;
     setData({ state: "loading" });
-    fetch(`/api/sources/${encodeURIComponent(open.id)}`)
+    fetch(`/api/sources/${encodeURIComponent(open.ref ?? open.id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((record: SourceRecord | null) => alive && setData(record ? { state: "ok", record } : { state: "missing" }))
       .catch(() => alive && setData({ state: "missing" }));

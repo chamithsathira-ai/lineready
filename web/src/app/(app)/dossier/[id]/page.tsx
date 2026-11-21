@@ -29,10 +29,10 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
         <h1 className="t-display">{item.title}</h1>
         <p className="t-caption">
           <Link href={`/aircraft/${item.tail}`} className="t-data link">{item.tail}</Link>
-          {a && ` · ${a.type} · Stand ${a.stand} · ${a.departure ? `Departs ${a.departure}` : "Night stop"}`} · Dossier {dossier.version}, verified
+          {a && ` · ${a.type} · Stand ${a.stand} · ${a.departure ? `Departs ${a.departure}` : "Night stop"}`} · Dossier {dossier.version}{brief.verified ? ", verified" : ""}
         </p>
       </header>
-      <DossierView dossier={dossier} item={item} manualIds={tasks.map((t) => t.id)} />
+      <DossierView dossier={dossier} item={item} manualIds={tasks.map((t) => t.id)} briefId={brief.briefId} engineerId={brief.engineerId} />
     </>
   );
 }

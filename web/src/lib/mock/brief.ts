@@ -15,13 +15,13 @@ export const mockBrief: ShiftBrief = {
   items: [
     {
       id: "b-aql-deadline",
-      tail: "A6-AQL",
+      tail: "A6-AQP",
       category: "deadline",
       status: "act",
       source: "AMOS",
-      title: "Deferred item extension ended 31 Oct. Work order still open.",
+      title: "Deferral limit passed 20 Oct. Work order still open.",
       detail: "The aircraft cannot depart on an expired deferral. Verify the status with MCC before 02:40.",
-      evidence: [{ id: "WO 6185232", kind: "wo" }, { id: "Rule DEADLINE-01", kind: "rule" }],
+      evidence: [{ id: "WO 6204647", kind: "wo" }, { id: "Rule DEADLINE-01", kind: "rule" }],
       pinned: true,
       dossierId: "a6-aql-deferral",
     },
@@ -61,7 +61,7 @@ export const mockBrief: ShiftBrief = {
   ],
   aircraft: [
     { tail: "A6-ANS", type: "A320", stand: "11", departure: "01:55", arriveMin: 140, departMin: 235, status: "prep" },
-    { tail: "A6-AQL", type: "A320", stand: "14", departure: "02:40", arriveMin: 35, departMin: 280, status: "act" },
+    { tail: "A6-AQP", type: "A320", stand: "14", departure: "02:40", arriveMin: 35, departMin: 280, status: "act" },
     { tail: "A6-ARM", type: "A320", stand: "9", departure: "03:15", arriveMin: 70, departMin: 315, status: "prep" },
     { tail: "A6-AOJ", type: "A321", stand: "R3", departure: null, arriveMin: 0, departMin: 480, status: "info" },
   ],
@@ -88,6 +88,6 @@ export const mockBrief: ShiftBrief = {
   handover: {
     from: "Day shift",
     at: "13:55",
-    text: "A6-ARM ADS-B fault reset on ground, no fault found. A6-AQL deferral extension requested, awaiting MCC.",
+    text: "A6-ARM ADS-B fault reset on ground, no fault found. A6-AQP deferral status to confirm with MCC.",
   },
 };

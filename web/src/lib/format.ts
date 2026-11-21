@@ -6,6 +6,7 @@ export const CATEGORY_LABEL: Record<BriefCategory, string> = {
   predictive: "Health prediction",
   techlog: "Tech log",
   scheduled: "Scheduled",
+  fault: "Aircraft fault",
 };
 
 /** "4h 15m" style countdown from now to the aircraft's departure, or null for a night stop. */

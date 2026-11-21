@@ -16,6 +16,7 @@ const FILTERS: { id: Filter; label: string; match: (i: BriefItem) => boolean }[]
   { id: "predictive", label: "Predictive", match: (i) => i.category === "predictive" },
   { id: "techlog", label: "Tech log", match: (i) => i.category === "techlog" },
   { id: "scheduled", label: "Scheduled", match: (i) => i.category === "scheduled" },
+  { id: "fault", label: "Aircraft faults", match: (i) => i.category === "fault" },
 ];
 
 /** Filter chips + items grouped by aircraft, in departure order. Counts live only on the chips. */
