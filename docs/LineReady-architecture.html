@@ -1,0 +1,623 @@
+<title>LineReady Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: engineering design spec — contents block, then chapters in reading order; mono for refs and evidence, condensed sans for headings */
+:root{
+  --paper:#f6f8fa; --sheet:#ffffff; --ink:#14202b; --muted:#56636f; --rule:#d5dde4;
+  --accent:#0f5e8c; --accent-soft:#e3eef5; --amber:#a86400; --amber-soft:#fdf1dc;
+  --red:#b3261e; --red-soft:#fbe6e4; --green:#2e7d4f; --green-soft:#e2f2e8;
+  --violet:#5b4bb0; --violet-soft:#ecebfa;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0f161d; --sheet:#16202a; --ink:#e4ebf1; --muted:#9aa8b5; --rule:#2a3845;
+  --accent:#6cb4e4; --accent-soft:#18324a; --amber:#f0a83a; --amber-soft:#3a2a10;
+  --red:#f2867e; --red-soft:#3d1a18; --green:#6fcf97; --green-soft:#16301f;
+  --violet:#a99cf0; --violet-soft:#26224a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f161d; --sheet:#16202a; --ink:#e4ebf1; --muted:#9aa8b5; --rule:#2a3845;
+  --accent:#6cb4e4; --accent-soft:#18324a; --amber:#f0a83a; --amber-soft:#3a2a10;
+  --red:#f2867e; --red-soft:#3d1a18; --green:#6fcf97; --green-soft:#16301f;
+  --violet:#a99cf0; --violet-soft:#26224a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:15.5px/1.6 var(--body)}
+.wrap{max-width:1080px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:60px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.2rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.8rem;font-weight:600}
+h3{font-size:1.12rem;font-weight:600}
+p{margin:0;max-width:70ch}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:1.12rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:18px;scroll-margin-top:16px}
+.sec-head{display:flex;flex-direction:column;gap:6px;border-top:2px solid var(--ink);padding-top:14px}
+.sec-head p{color:var(--muted)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card p,.card li{color:var(--muted);font-size:.94rem}
+.card ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px}
+.tag{display:inline-block;font-family:var(--mono);font-size:.7rem;padding:2px 7px;border-radius:3px;background:var(--accent-soft);color:var(--accent);letter-spacing:.03em;width:fit-content}
+.tag.amber{background:var(--amber-soft);color:var(--amber)}
+.tag.red{background:var(--red-soft);color:var(--red)}
+.tag.green{background:var(--green-soft);color:var(--green)}
+.tag.violet{background:var(--violet-soft);color:var(--violet)}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:700px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.diagram{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px;overflow-x:auto}
+.diagram pre.mermaid{margin:0;min-width:760px;background:transparent}
+.caption{font-size:.86rem;color:var(--muted)}
+.thesis{background:var(--sheet);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:6px;padding:20px 22px;display:flex;flex-direction:column;gap:10px}
+.thesis strong{font-family:var(--display);font-size:1.3rem;font-weight:600}
+.toc{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 20px;background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;font-size:.92rem}
+.toc a{text-decoration:none;color:var(--ink);display:flex;gap:10px}
+.toc a:hover,.toc a:focus-visible{color:var(--accent)}
+.toc span{font-family:var(--mono);color:var(--accent);min-width:2.2ch}
+pre.code{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;margin:0;overflow-x:auto;font:13px/1.55 var(--mono);color:var(--ink)}
+pre.code .c{color:var(--muted)}
+/* use case */
+.uc{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+.uc .who{padding:18px;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:10px}
+.uc .who ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:.93rem}
+.uc .out{padding:18px;display:flex;flex-direction:column;gap:10px;background:var(--paper);border-radius:0 6px 6px 0;min-width:0}
+.screen{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;overflow:hidden;font-size:.9rem}
+.screen .bar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:9px 12px;border-bottom:1px solid var(--rule);font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.screen .row{padding:10px 12px;border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:5px}
+.screen .row:last-child{border-bottom:0}
+.screen .row.hot{background:var(--red-soft);border-left:4px solid var(--red)}
+.cites{display:flex;flex-wrap:wrap;gap:5px}
+.cite{font-family:var(--mono);font-size:.7rem;border:1px solid var(--rule);border-radius:3px;padding:1px 6px;color:var(--muted);background:var(--sheet)}
+.chat{display:flex;flex-direction:column;gap:8px;padding:12px}
+.bubble{padding:9px 12px;border-radius:8px;max-width:92%}
+.bubble.q{background:var(--accent-soft);align-self:flex-end}
+.bubble.a{background:var(--sheet);border:1px solid var(--rule)}
+@media (max-width:720px){.uc{grid-template-columns:1fr}.uc .who{border-right:0;border-bottom:1px solid var(--rule)}.uc .out{border-radius:0 0 6px 6px}}
+.hours{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.hour{border-top:3px solid var(--accent);background:var(--sheet);padding:14px;border-radius:0 0 6px 6px;border-left:1px solid var(--rule);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:6px}
+.hour .h{font-family:var(--mono);font-size:.78rem;color:var(--accent)}
+.hour p{font-size:.9rem;color:var(--muted)}
+ul.clean{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;max-width:74ch}
+.meter{display:flex;flex-direction:column;gap:8px}
+.mrow{display:grid;grid-template-columns:170px 1fr 90px;gap:10px;align-items:center;font-size:.88rem}
+.mtrack{height:12px;background:var(--paper);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.mfill{height:100%;background:var(--accent)}
+.mfill.low{background:var(--green)}
+.mrow .v{font-family:var(--mono);font-size:.8rem;text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:560px){.mrow{grid-template-columns:1fr 70px}.mrow .mtrack{grid-column:1/-1;grid-row:2}}
+.foot{font-size:.85rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:16px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">AI Hackathon · Use Case 4 · Line Engineer Agent · Complete design v4</span>
+  <h1>LineReady: complete system design</h1>
+  <p class="lede">A multi-agent assistant that prepares every defect before the engineer reaches the aircraft. This document covers what it does, how people use it, the agent design, memory, knowledge base, retrieval, review layer, token budget, and a free, self-hosted stack.</p>
+</header>
+
+<div class="thesis">
+  <span class="eyebrow">At a glance</span>
+  <strong>Code does what code can. Claude does the rest. Every line is reviewed and cited.</strong>
+  <p>About 70% of a shift brief is facts (open defects, deadlines, stock, sector counts), and these come from SQL and rules at zero token cost. AI agents handle only the parts that need language: grouping symptoms, matching history, finding the manual task, and writing a short summary. Claude, through the Claude API, does the language and reasoning work. Everything else (database, embeddings, reranker, agent framework, UI) is free and open source.</p>
+</div>
+
+<nav class="toc" aria-label="Contents">
+  <a href="#functions"><span>1</span>Main functionalities</a>
+  <a href="#usecases"><span>2</span>Use cases and outputs</a>
+  <a href="#overview"><span>3</span>System overview</a>
+  <a href="#agents"><span>4</span>Multi-agent architecture</a>
+  <a href="#memory"><span>5</span>Short- and long-term memory</a>
+  <a href="#kb"><span>6</span>Knowledge base design</a>
+  <a href="#chunking"><span>7</span>Chunking, embeddings, vectors</a>
+  <a href="#retrieval"><span>8</span>Retrieval methods</a>
+  <a href="#review"><span>9</span>Review layer</a>
+  <a href="#tokens"><span>10</span>Token reduction</a>
+  <a href="#learning"><span>11</span>Self-learning</a>
+  <a href="#clean"><span>12</span>Clean architecture</a>
+  <a href="#free"><span>13</span>Stack: Claude + free tools</a>
+  <a href="#needs"><span>14</span>Other resources needed</a>
+  <a href="#eval"><span>15</span>Evaluation</a>
+  <a href="#plan"><span>16</span>Build plan</a>
+</nav>
+
+<!-- 1 -->
+<section id="functions">
+  <div class="sec-head"><span class="eyebrow">1 · Main functionalities</span><h2>What the system does</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Function</th><th>What the user gets</th><th>Round</th></tr></thead>
+    <tbody>
+      <tr><td>F1</td><td><b>Shift brief</b></td><td>One page per engineer, ready before the shift: aircraft and ground times, jobs due, open defects, deferred items with deadlines, alerts, last handover. The most urgent item is pinned at the top.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F2</td><td><b>Defect dossier</b></td><td>For each defect: the symptom timeline, tail and fleet history, the TSM/AMM tasks to use, and parts and tools readiness. Every line links to its source.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F3</td><td><b>Repetitive-defect detection</b></td><td>Flags defects that meet the repetitive rule (for example 3 or more in 10 sectors on the same ATA), and names the rule.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F4</td><td><b>Deadline watch</b></td><td>Deferred and MEL item deadlines compared with each aircraft's departure. Anything expiring tonight is flagged.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F5</td><td><b>Readiness check</b></td><td>Parts in stock and serviceable, alternate part numbers, tool location. Gaps go to the shift lead before the shift starts.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F6</td><td><b>Manual viewer</b></td><td>Opens the exact TSM or AMM task at its controlled revision, with a revision banner.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F7</td><td><b>Review and audit trail</b></td><td>The engineer accepts, edits or dismisses each item. Every suggestion and change is logged.</td><td><span class="tag">R1 core</span></td></tr>
+      <tr><td>F8</td><td><b>Ask (text, later voice)</b></td><td>"Has this tail had this before?" or "What does the TSM say?" Answered with WO numbers and task references.</td><td><span class="tag amber">R1 stretch</span></td></tr>
+      <tr><td>F9</td><td><b>Logbook entry check</b></td><td>Checks a draft entry for missing steps, part numbers and references, and shows the manual page that applies.</td><td><span class="tag amber">R1 stretch</span></td></tr>
+      <tr><td>F10</td><td><b>Coach mode</b></td><td>The trainee prepares the dossier themselves. The agent grades it against the hidden answer key and explains each gap.</td><td><span class="tag violet">Final</span></td></tr>
+      <tr><td>F11</td><td><b>Aircraft pack before landing</b></td><td>The dossier is refreshed when a new fault arrives from the aircraft in flight.</td><td><span class="tag violet">Final</span></td></tr>
+      <tr><td>F12</td><td><b>Handover draft</b></td><td>End-of-shift handover written from what was actually done.</td><td><span class="tag violet">Final</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 2 -->
+<section id="usecases">
+  <div class="sec-head"><span class="eyebrow">2 · Use cases</span><h2>How people use it, and what they see</h2><p>The examples are modelled on real data-pack records. The schedule and engineer names are synthetic.</p></div>
+
+  <div class="uc">
+    <div class="who"><span class="tag">UC1 · Certifying engineer</span><h3>Start of the night shift</h3>
+      <ol><li>Logs in on the tablet at 21:45.</li><li>The brief is already built (it was started at T-60 by the scheduler).</li><li>Reads the pinned item first and taps it to see the evidence.</li><li>Marks each item accepted, edited or not relevant.</li></ol>
+      <p class="caption">Time to a full picture: minutes, instead of the 1 to 1.5 hours per defect described in the mentor call.</p></div>
+    <div class="out"><span class="eyebrow">Output: shift brief</span>
+      <div class="screen">
+        <div class="bar"><b style="color:var(--ink)">SHJ night · 20 Nov 22:00–06:00</b><span>Engineer B1 · 4 aircraft · v3 21:00</span></div>
+        <div class="row hot"><span class="tag red">Attention · deadline</span><b>A6-AQL: deferred item extension ended 31 Oct, WO still open</b><span class="caption">Departs 02:40. Verify the status with MCC.</span><div class="cites"><span class="cite">WO 6185232</span><span class="cite">rule DEADLINE-01</span></div></div>
+        <div class="row"><span class="tag red">Repetitive</span><b>A6-ARM: NAV ADS-B RPTG 1 FAULT, recurring across recent sectors</b><div class="cites"><span class="cite">AVIATAR episode</span><span class="cite">rule REP-01</span><span class="cite">TSM 34-52</span></div></div>
+        <div class="row"><span class="tag amber">Predictive · read only</span><b>A6-AOJ: High Brake 1 temperature, PHA case open</b><div class="cites"><span class="cite">PHA ce65968c</span><span class="cite">TSM 32-42-00-810-923</span></div></div>
+      </div></div>
+  </div>
+
+  <div class="uc">
+    <div class="who"><span class="tag">UC2 · Certifying engineer</span><h3>Prepare one defect</h3>
+      <ol><li>Taps the A6-ARM item.</li><li>Sees the dossier: what happened, what was done before, which task to open, and what is in stores.</li><li>Opens the TSM task in the manual viewer.</li><li>Goes to the aircraft with the preparation done.</li></ol></div>
+    <div class="out"><span class="eyebrow">Output: defect dossier</span>
+      <div class="screen">
+        <div class="bar"><b style="color:var(--ink)">A6-ARM · ATA 34 · ADS-B</b><span>dossier v2 · verified</span></div>
+        <div class="row"><span class="tag">Symptom</span><span>NAV ADS-B RPTG 1 FAULT with MMR 1 and 2 fault messages on flight G90793. First seen 20 Nov 06:05.</span></div>
+        <div class="row"><span class="tag amber">History · information only</span><span>Similar earlier MAREPs on this tail are listed with the actions taken and whether the fault came back.</span></div>
+        <div class="row"><span class="tag green">References · exact match</span><span>TSM fault index → 34-52-00-810-8xx (effectivity: confirm MSN). Linked AMM tasks.</span></div>
+        <div class="row"><span class="tag">Readiness</span><span>Parts from the IPC figure, with SHJLINE stock and condition. Tools and their location.</span></div>
+      </div></div>
+  </div>
+
+  <div class="uc">
+    <div class="who"><span class="tag">UC3 · Engineer at the aircraft</span><h3>Ask a question</h3>
+      <ol><li>Types or says the question.</li><li>The Ask agent pulls the answer from history and the manuals.</li><li>The answer quotes its sources, or says it found nothing.</li></ol></div>
+    <div class="out"><span class="eyebrow">Output: cited answer</span>
+      <div class="screen"><div class="chat">
+        <div class="bubble q">What does the TSM say for BRAKES HOT on A6-AOJ?</div>
+        <div class="bubble a">The fault index maps BRAKES HOT to <b>TSM 32-42-00-810-923-A</b> (TSN 86, rev 01-Nov-2026). PHA has had an open case for High Brake 1 temperature since 19-Nov. This is information for your troubleshooting. The decision is yours.<div class="cites" style="margin-top:6px"><span class="cite">TSM 32-42-00-810-923-A</span><span class="cite">PHA ce65968c</span></div></div>
+      </div></div></div>
+  </div>
+
+  <div class="uc">
+    <div class="who"><span class="tag">UC4 · Shift lead</span><h3>Readiness alert before the shift</h3>
+      <ol><li>Gets a notification at 21:02.</li><li>Sees what is missing for which aircraft and why.</li><li>Arranges a part or reassigns the work before the shift starts.</li></ol></div>
+    <div class="out"><span class="eyebrow">Output: readiness alert</span>
+      <div class="screen"><div class="row hot"><span class="tag red">Readiness gap</span><b>Brake assy MLG: SHJLINE holds 1 unit, condition US (unserviceable)</b><span class="caption">Needed if the A6-AOJ brake troubleshooting leads to replacement. Alternate P/N check: none in stock.</span><div class="cites"><span class="cite">Stores C20225510</span><span class="cite">IPC 32-42</span></div></div></div></div>
+  </div>
+
+  <div class="uc">
+    <div class="who"><span class="tag violet">UC5 · Trainee (Coach)</span><h3>Learn the preparation</h3>
+      <ol><li>Gets the same defect, but without the answers.</li><li>Writes which history matters, which TSM task to use and which parts are needed.</li><li>The agent compares this with the hidden dossier and explains each gap with the manual page.</li><li>Progress goes into the training file.</li></ol></div>
+    <div class="out"><span class="eyebrow">Output: coaching feedback</span>
+      <div class="screen">
+        <div class="row"><span class="tag green">Correct</span><span>You picked the ATA 34 ADS-B fault path.</span></div>
+        <div class="row"><span class="tag amber">Missed</span><span>The MMR faults on the same flight are part of the same episode. Why might they matter? See the TSM fault index rows for 34-36.</span></div>
+        <div class="row"><span class="tag">Progress</span><span>ATA 34 troubleshooting prep: 3 of 5 competency checks met.</span></div>
+      </div></div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="overview">
+  <div class="sec-head"><span class="eyebrow">3 · System overview</span><h2>Seven layers, one direction of dependency</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L1["L1 · Sources · read only"]
+    direction LR
+    S1["AMOS<br/>WOs · stores · tools"]
+    S2["AVIATAR<br/>faults · PHA"]
+    S3["Manuals<br/>TSM · AMM · IPC · MMEL"]
+    S4["Regulation<br/>CAR-M · CAR-145"]
+    S5["Ops<br/>schedule · roster"]
+  end
+  subgraph L2["L2 · Ingestion"]
+    direction LR
+    I1["Adapters"] --> I2["SGML to XML parser"] --> I3["Entity linker"] --> I4["Episode builder"] --> I5["Chunker + embedder"]
+  end
+  subgraph L3["L3 · Knowledge base + memory"]
+    direction LR
+    K1[("Postgres tables")]
+    K2[("Graph edges")]
+    K3[("pgvector + BM25")]
+    K4[("Long-term memory")]
+    K5[("Short-term memory")]
+  end
+  subgraph L4["L4 · Tool layer · MCP"]
+    direction LR
+    T1["fleet"] --- T2["health"] --- T3["manuals"] --- T4["logistics"] --- T5["rules"] --- T6["memory"]
+  end
+  subgraph L5["L5 · Agent layer · LangGraph"]
+    direction LR
+    A0["Router"] --> A1["Supervisor"] --> A2["Specialists"] --> A3["Critic"]
+  end
+  subgraph L6["L6 · Review layer"]
+    direction LR
+    R1["Auto checks"] --> R2["AI verifier"] --> R3["Human review"]
+  end
+  subgraph L7["L7 · Experience"]
+    direction LR
+    U1["Brief"] --- U2["Dossier"] --- U3["Ask"] --- U4["Coach"]
+  end
+  L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7
+  L7 -->|feedback| K4
+  </pre></div>
+</section>
+
+<!-- 4 -->
+<section id="agents">
+  <div class="sec-head"><span class="eyebrow">4 · Multi-agent architecture</span><h2>A hybrid of six proven patterns</h2><p>No single pattern fits. A brief must be the same every time it is replayed, which suits a fixed workflow. Questions are open-ended, which suits a router with tool-using agents. Safety needs a critic and a human. LineReady combines six patterns, each used where it fits best.</p></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Pattern</th><th>Where we use it</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><b>1 · Event-driven trigger</b></td><td>T-60 schedule, new AVIATAR fault, new PHA case, user question</td><td>The agent works one step ahead without being asked</td></tr>
+      <tr><td><b>2 · Router</b></td><td>The entry node classifies the request (brief, dossier refresh, question, coach) and sends it to the right graph</td><td>Each request takes the cheapest correct path</td></tr>
+      <tr><td><b>3 · Hierarchical supervisor</b></td><td>Shift Orchestrator → specialist agents</td><td>Clear ownership. Specialists run in parallel.</td></tr>
+      <tr><td><b>4 · Plan-and-execute DAG</b></td><td>The brief pipeline is a fixed graph of steps</td><td>Repeatable and auditable. The same input gives the same plan.</td></tr>
+      <tr><td><b>5 · Blackboard (shared state)</b></td><td>The dossier object. Each specialist writes only its own typed section.</td><td>Agents share information without long chat threads, which saves tokens</td></tr>
+      <tr><td><b>6 · Reflection (critic loop) + human in the loop</b></td><td>The verifier checks and returns a draft at most once. Then a human reviews it.</td><td>Accuracy, with people in control</td></tr>
+    </tbody>
+  </table></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  EV(["Events<br/>T-60 · fault · PHA · question"]) --> RT{"Router"}
+  RT -->|brief| SUP["Shift Orchestrator<br/>supervisor"]
+  RT -->|question| ASK["Ask agent<br/>ReAct + tools"]
+  RT -->|training| COA["Coach agent"]
+  SUP -->|DAG fan-out| P1
+  subgraph P1["Specialists · parallel"]
+    direction TB
+    TRI["Triage"]
+    HIS["Historian"]
+    MAN["Manuals"]
+    LOG["Logistics"]
+    CMP["Compliance"]
+  end
+  P1 --> BB[("Blackboard<br/>dossier state")]
+  BB --> CRT{"Critic / verifier"}
+  CRT -->|fix once| P1
+  CRT -->|pass| SUP
+  SUP --> HR["Human review"]
+  ASK --> CRT
+  COA -.answer key.-> BB
+  </pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Agent</th><th>Job</th><th>Uses an LLM?</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td><b>Router</b></td><td>Classifies the request</td><td>Rules first, Claude at low effort if unclear</td><td><code>route</code></td></tr>
+      <tr><td><b>Shift Orchestrator</b></td><td>Scopes the shift, fans out work, ranks results, writes the brief</td><td>Only for the 1–2 line summary per item</td><td><code>Brief</code></td></tr>
+      <tr><td><b>Triage</b></td><td>Groups AVIATAR, PHA and logbook entries into symptom episodes</td><td>Clustering is code. The LLM writes the episode label.</td><td><code>Symptom</code></td></tr>
+      <tr><td><b>Historian</b></td><td>Tail and fleet history, and whether past fixes worked</td><td>Retrieval is code. The LLM picks the relevant cases.</td><td><code>History</code></td></tr>
+      <tr><td><b>Manuals</b></td><td>Fault index → TSM → AMM → IPC, filtered by effectivity and revision</td><td>Mostly none (exact lookups)</td><td><code>Refs</code></td></tr>
+      <tr><td><b>Logistics</b></td><td>Stock, condition, alternate part numbers, tools</td><td>None (SQL)</td><td><code>Readiness</code></td></tr>
+      <tr><td><b>Compliance</b></td><td>Repetitive-defect rule, deadlines, MEL limits</td><td>Only to pull dates out of free text</td><td><code>Flags</code></td></tr>
+      <tr><td><b>Critic / Verifier</b></td><td>Checks every claim against its evidence and the policy</td><td>Yes, in a separate context</td><td><code>Verdict</code></td></tr>
+      <tr><td><b>Ask</b></td><td>Open questions, using tools step by step (ReAct)</td><td>Yes</td><td>Cited answer</td></tr>
+      <tr><td><b>Coach</b></td><td>Socratic tutoring against the hidden dossier</td><td>Yes</td><td><code>Feedback</code></td></tr>
+      <tr><td><b>Learning</b> (offline)</td><td>Turns feedback and outcomes into proposed memory updates</td><td>Yes, in an overnight batch</td><td><code>Proposal</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 5 -->
+<section id="memory">
+  <div class="sec-head"><span class="eyebrow">5 · Memory</span><h2>Yes, both: short-term for the current task, long-term for what it knows</h2><p>Short-term memory holds the current task and is cleared when the task ends. Long-term memory is split by kind of knowledge, and each kind has its own write rules. Agents never write to long-term memory directly. Only the review layer and the learning gate can.</p></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph ST["Short-term · working memory"]
+    direction TB
+    W1["Run state<br/>blackboard per brief run"]
+    W2["Conversation buffer<br/>last 6 turns + rolling summary"]
+    W3["Scratchpad<br/>tool results this turn"]
+  end
+  subgraph LT["Long-term memory"]
+    direction TB
+    M1["Semantic<br/>manuals · regs · fault index"]
+    M2["Episodic<br/>past WOs · past runs · outcomes"]
+    M3["Entity<br/>aircraft memory card · engineer profile"]
+    M4["Procedural<br/>ATA playbooks · prompts · rules"]
+    M5["Feedback ledger<br/>accept · edit · dismiss"]
+  end
+  ST -->|read| LT
+  ST -->|on task end: summary| M2
+  RV["Review layer"] -->|approved facts| M3
+  RV --> M5
+  LG["Learning gate"] -->|versioned| M4
+  </pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Memory</th><th>Holds</th><th>Store</th><th>Lifetime</th><th>Written by</th></tr></thead>
+    <tbody>
+      <tr><td><b>Run state</b></td><td>Dossier being built, agent outputs, retries</td><td>LangGraph checkpointer (Postgres)</td><td>One run. Kept for audit replay.</td><td>Agents</td></tr>
+      <tr><td><b>Conversation buffer</b></td><td>Ask/Coach turns: last 6 verbatim plus a rolling summary</td><td>Postgres <code>session</code> table</td><td>Session, max one shift</td><td>Ask, Coach</td></tr>
+      <tr><td><b>Scratchpad</b></td><td>Raw tool results within one turn</td><td>In process</td><td>One turn, then dropped</td><td>Agents</td></tr>
+      <tr><td><b>Semantic</b></td><td>Manual chunks, regulations, TSM fault index</td><td>pgvector + tables</td><td>Until the next manual revision</td><td>Ingestion only</td></tr>
+      <tr><td><b>Episodic</b></td><td>209k WOs as cases, with outcome labels and past run summaries</td><td>pgvector + tables</td><td>Permanent</td><td>Ingestion, outcome labeller</td></tr>
+      <tr><td><b>Entity: aircraft card</b></td><td>Per tail: rolling summary, recurring issues, open deferrals, quirks noted by engineers</td><td>Postgres JSONB</td><td>Rebuilt nightly</td><td>Nightly job + reviewed notes</td></tr>
+      <tr><td><b>Entity: engineer profile</b></td><td>Role, licence and authorisations, preferences, trainee competency</td><td>Postgres</td><td>Permanent</td><td>Admin, Coach</td></tr>
+      <tr><td><b>Procedural</b></td><td>ATA playbooks, prompt versions, rule versions</td><td>Git + registry table</td><td>Versioned</td><td>Learning gate + Quality</td></tr>
+      <tr><td><b>Feedback ledger</b></td><td>Every review action and its reason</td><td>Append-only table</td><td>Permanent (audit)</td><td>Review layer</td></tr>
+    </tbody>
+  </table></div>
+  <p class="caption">The aircraft memory card is the biggest token saver. Agents read a 300-token card instead of hundreds of raw work orders.</p>
+</section>
+
+<!-- 6 -->
+<section id="kb">
+  <div class="sec-head"><span class="eyebrow">6 · Knowledge base design</span><h2>Four stores, and each piece of data goes in the store that fits it</h2><p>Structured data is never embedded. Text is embedded only when it is searched by meaning. Relationships live in a graph so they can be followed step by step. All four stores are in one Postgres database, which keeps the system simple.</p></div>
+  <div class="grid two">
+    <div class="card"><span class="tag">Store A · relational</span><h3>Facts</h3><p><code>aircraft</code>, <code>work_order</code>, <code>wo_action</code>, <code>fault_event</code>, <code>episode</code>, <code>pha_case</code>, <code>stock_lot</code>, <code>tool</code>, <code>flight</code>, <code>roster</code>, <code>deferral</code>, <code>tsm_fault_index</code>, <code>manual_task</code>. Answers "what, when, how many" with SQL.</p></div>
+    <div class="card"><span class="tag">Store B · graph (edges table)</span><h3>Relationships</h3><p><code>edge(src_type, src_id, rel, dst_type, dst_id, source_ref)</code>. Relations: HAS_DEFECT, SHOWS_MSG, INDEXED_TO (msg→TSM), REFERS_TO (TSM→AMM), REQUIRES_PART, REQUIRES_TOOL, STOCKED_AS, SIMILAR_TO. Traversed with recursive SQL, so no Neo4j is needed.</p></div>
+    <div class="card"><span class="tag">Store C · documents + vectors</span><h3>Searchable text</h3><p><code>chunk(id, doc, doc_rev, ata, task_id, parent_id, effectivity, approved, header, text, tsv, embedding)</code>. HNSW vector index plus a GIN full-text index on the same row.</p></div>
+    <div class="card"><span class="tag">Store D · memory</span><h3>Learned and session state</h3><p><code>aircraft_card</code>, <code>engineer_profile</code>, <code>case_outcome</code>, <code>playbook</code>, <code>session</code>, <code>feedback_ledger</code>, <code>audit_event</code> (hash-chained).</p></div>
+  </div>
+<pre class="code"><span class="c">-- every chunk carries the metadata needed for hard filters and citations</span>
+CREATE TABLE chunk (
+  id           text PRIMARY KEY,          <span class="c">-- 'tsm:32-42-00-810-923-A#s3'</span>
+  doc          text,                      <span class="c">-- TSM | AMM | IPC | MMEL | CAR-M | CAR-145 | WO</span>
+  doc_rev      date,                      <span class="c">-- 2026-11-01</span>
+  ata          text,                      <span class="c">-- '32-42'</span>
+  task_id      text,
+  parent_id    text,                      <span class="c">-- small-to-big: child chunk → whole task</span>
+  effectivity  int4range[],               <span class="c">-- from SGML EFFRG</span>
+  approved     boolean,                   <span class="c">-- controlled source?</span>
+  header       text,                      <span class="c">-- contextual header prepended before embedding</span>
+  text         text,
+  tsv          tsvector,                  <span class="c">-- BM25-style lexical search</span>
+  embedding    vector(1024)               <span class="c">-- bge-m3 dense</span>
+);
+CREATE INDEX ON chunk USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX ON chunk USING gin (tsv);</pre>
+</section>
+
+<!-- 7 -->
+<section id="chunking">
+  <div class="sec-head"><span class="eyebrow">7 · Chunking, embeddings and vectors</span><h2>Yes, but only where meaning-based search helps</h2><p>Each source gets its own chunking strategy. Manuals are split by their own structure, not by a fixed token count, so a step never loses its warning and a task is never cut in half.</p></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Source</th><th>Chunking strategy</th><th>Size</th><th>Embedded?</th></tr></thead>
+    <tbody>
+      <tr><td>TSM fault index</td><td>Not chunked. One table row per fault message → task.</td><td>—</td><td>No. Exact lookup, plus fuzzy match on message text.</td></tr>
+      <tr><td>TSM / AMM tasks</td><td><b>Structural + parent-child</b>: each SUBTASK is a child chunk and the whole TASK is the parent. Warnings and cautions stay with their step. Tables become row text.</td><td class="num">child 200–400 tok · parent ≤ 2k</td><td>Child chunks yes. Parent returned on a hit.</td></tr>
+      <tr><td>IPC</td><td>One record per figure item: P/N, description, quantity, effectivity, interchangeability.</td><td>—</td><td>No. Structured table.</td></tr>
+      <tr><td>MMEL</td><td>One chunk per item: system, item, category, remarks and procedures.</td><td class="num">≤ 500 tok</td><td>Yes</td></tr>
+      <tr><td>CAR-M / CAR-145</td><td>By clause heading (M.A.xxx, AMC, GM), with the heading path as the header.</td><td class="num">300–500 tok · 10% overlap</td><td>Yes</td></tr>
+      <tr><td>Work orders</td><td>One case per WO: description + condensed actions + outcome. Repeated scheduled-task text is deduplicated by hash.</td><td class="num">≤ 400 tok</td><td>Defects (PIREP/MAREP) yes. Scheduled tasks are deduplicated first.</td></tr>
+      <tr><td>AVIATAR faults</td><td>Not chunked. Rows → episodes (tail + ATA + time window).</td><td>—</td><td>No</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid">
+    <div class="card"><span class="tag">Contextual header</span><h3>Each chunk knows where it is</h3><p>Before embedding, each chunk gets a short header such as <code>TSM · 32-42 Braking · Task 32-42-00-810-923 Brake overheat · rev 2026-11-01</code>. This fixes the most common failure, where a chunk reads "do step 3" with no subject.</p></div>
+    <div class="card"><span class="tag">Abbreviation expansion</span><h3>Normalise before embedding</h3><p>The text "RH ENG BLEED VLV" is indexed alongside its expanded form, "right engine bleed valve". The lexicon is mined from the logbook corpus, so lexical and meaning-based search both match.</p></div>
+    <div class="card"><span class="tag green">Model</span><h3>BGE-M3 (free, MIT)</h3><p>1024-dimension dense vectors, an 8k-token input window, and an optional sparse output. Runs on CPU or a small GPU. Fallback for weak laptops: <code>bge-small-en-v1.5</code> (384-dim).</p></div>
+    <div class="card"><span class="tag">Vector store</span><h3>pgvector with an HNSW index</h3><p>Lives in the same Postgres as everything else, so a single query can combine filters, full-text and vectors. If the data grows, Qdrant (Apache-2.0) is a drop-in swap behind the Retriever port.</p></div>
+  </div>
+  <p class="caption">Scope control: AMM and IPC together are 3.3 GB. For Round 1, embed only the ATA chapters in the demo night (for example 21, 32, 34, 49). Embed the rest in an overnight batch later.</p>
+</section>
+
+<!-- 8 -->
+<section id="retrieval">
+  <div class="sec-head"><span class="eyebrow">8 · Retrieval methods</span><h2>Eleven methods in one cascade, cheapest and most exact first</h2></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  Q["Query"] --> C0{"Semantic cache hit?"}
+  C0 -->|yes| ANS["Cached answer<br/>if data unchanged"]
+  C0 -->|no| QU["Query understanding<br/>entities · abbreviations · rewrite"]
+  QU --> EX{"Exact keys?"}
+  EX -->|yes| M1["1 · Exact lookup<br/>2 · Fault index"]
+  EX -->|no| HY
+  M1 --> GR["3 · Graph traversal<br/>multi-hop"]
+  GR --> HY["4 · Metadata filter<br/>5 · BM25 · 6 · Dense<br/>7 · RRF fusion"]
+  HY --> PD["8 · Parent document<br/>small to big"]
+  PD --> RR["9 · Cross-encoder rerank"]
+  RR --> SF{"10 · Sufficient?"}
+  SF -->|no| QU
+  SF -->|yes| PK["Evidence pack<br/>top 5 · compressed"]
+  SF -->|after 1 retry| AB["Abstain"]
+  </pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Method</th><th>Used for</th><th>Tool (free)</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>Exact key lookup</b></td><td>Tail, WO number, task ID, P/N, ATA</td><td>Postgres</td></tr>
+      <tr><td>2</td><td><b>Fault-symptom index</b></td><td>AVIATAR or ECAM message → TSM task, with fuzzy match (trigram) for typos</td><td>Postgres <code>pg_trgm</code></td></tr>
+      <tr><td>3</td><td><b>Graph traversal</b></td><td>TSM → AMM → parts → stock. Similar cases.</td><td>Recursive SQL</td></tr>
+      <tr><td>4</td><td><b>Metadata hard filters</b></td><td>Effectivity, current revision, approved flag, tail, date window</td><td>SQL WHERE</td></tr>
+      <tr><td>5</td><td><b>Lexical (BM25-style)</b></td><td>Codes and exact terms such as "40RT2" or "ADS-B"</td><td>Postgres FTS (or ParadeDB pg_search)</td></tr>
+      <tr><td>6</td><td><b>Dense vector</b></td><td>Free-text symptoms that use different words ("dark area on fin")</td><td>pgvector + BGE-M3</td></tr>
+      <tr><td>7</td><td><b>Hybrid fusion (RRF)</b></td><td>Merges the 5 and 6 rankings without score tuning</td><td>~10 lines of SQL or Python</td></tr>
+      <tr><td>8</td><td><b>Parent document (small-to-big)</b></td><td>Match a small step, return the whole task</td><td><code>parent_id</code></td></tr>
+      <tr><td>9</td><td><b>Cross-encoder rerank</b></td><td>Re-orders the top 30 down to the top 5</td><td><code>bge-reranker-v2-m3</code></td></tr>
+      <tr><td>10</td><td><b>Corrective sufficiency check</b></td><td>If the evidence is weak, rewrite the query once, then abstain</td><td>Rules + small LLM</td></tr>
+      <tr><td>11</td><td><b>Temporal / sector window</b></td><td>"Last 10 sectors", recurrence after a fix</td><td>SQL window functions</td></tr>
+    </tbody>
+  </table></div>
+  <p class="caption">Optional extras once the basics work: HyDE (write a hypothetical answer and search with it) for vague questions, and multi-query expansion for Coach mode.</p>
+</section>
+
+<!-- 9 -->
+<section id="review">
+  <div class="sec-head"><span class="eyebrow">9 · Review layer</span><h2>Nothing reaches an engineer unreviewed, and nothing becomes a record without a human</h2><p>Review happens at five levels. The first three are automatic and run on every output. The last two are people.</p></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  D["Draft output"] --> R1{"R1 · Schema check<br/>code"}
+  R1 -->|fail| X1["Rejected"]
+  R1 --> R2{"R2 · Evidence check<br/>code"}
+  R2 -->|missing or old rev| X2["Claim removed"]
+  R2 --> R3{"R3 · AI critic<br/>claim vs evidence + policy"}
+  R3 -->|unsupported| FX["Return to agent once"]
+  FX --> R3
+  R3 --> R4["R4 · Engineer review<br/>accept · edit · dismiss"]
+  R4 --> R5["R5 · Supervisory review<br/>shift lead · Quality · mentor"]
+  R4 --> LED[("Feedback ledger + audit")]
+  R5 --> LED
+  </pre></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Level</th><th>Reviewer</th><th>Checks</th><th>On failure</th></tr></thead>
+    <tbody>
+      <tr><td><b>R1</b></td><td>Code</td><td>Output matches the JSON schema. Required fields present (<code>evidence_ids</code>, <code>rule_id</code>).</td><td>Rejected, agent re-run</td></tr>
+      <tr><td><b>R2</b></td><td>Code</td><td>Evidence exists, belongs to this tail, revision is current, source is approved</td><td>Claim removed or marked information only</td></tr>
+      <tr><td><b>R3</b></td><td>AI critic (separate context)</td><td>Each sentence is supported by its evidence. No diagnosis claims. No sign, defer or release wording.</td><td>One fix round, then removed</td></tr>
+      <tr><td><b>R4</b></td><td>Engineer</td><td>Accept, edit (with reason) or dismiss (with reason) each item</td><td>Logged. Feeds learning.</td></tr>
+      <tr><td><b>R5</b></td><td>Shift lead · Quality · senior mentor</td><td>Readiness alerts (shift lead), memory and playbook updates (Quality), trainee work (mentor)</td><td>Change blocked until approved</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 10 -->
+<section id="tokens">
+  <div class="sec-head"><span class="eyebrow">10 · Token reduction</span><h2>Ten ways to keep the LLM workload small</h2><p>Fewer tokens means lower Claude API cost and faster briefs. The figures are design targets per defect dossier, to be measured in the build. Rough cost at Claude Opus 5.5 prices ($4 input / $20 output per million tokens): about 4k input + 500 output tokens is roughly $0.03 per dossier, so well under $1 for a 3-engineer brief.</p></div>
+  <div class="meter" role="img" aria-label="Estimated tokens per dossier: naive RAG about 40,000; LineReady target about 4,000">
+    <div class="mrow"><span>Naive RAG (dump history + manuals)</span><div class="mtrack"><div class="mfill" style="width:100%"></div></div><span class="v">~40,000</span></div>
+    <div class="mrow"><span>LineReady target</span><div class="mtrack"><div class="mfill low" style="width:10%"></div></div><span class="v">~4,000</span></div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Technique</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>Deterministic first</b></td><td>Deadlines, sector counts, stock and the fault index come from SQL and rules. No tokens.</td></tr>
+      <tr><td>2</td><td><b>Template rendering</b></td><td>The UI renders facts from data. The LLM writes only a 1–2 sentence summary per item.</td></tr>
+      <tr><td>3</td><td><b>Pre-aggregation</b></td><td>376k fault rows → episodes. Hundreds of WOs → a 300-token aircraft memory card.</td></tr>
+      <tr><td>4</td><td><b>Top-k + compression</b></td><td>Rerank to the top 5, then pass only the matching sentences plus the IDs, not whole chunks.</td></tr>
+      <tr><td>5</td><td><b>Reference by ID</b></td><td>Claims point at <code>evidence_ids</code> instead of quoting text. The UI expands them.</td></tr>
+      <tr><td>6</td><td><b>Short schemas</b></td><td>Compact JSON keys, no prose fields, and a <code>max_tokens</code> limit on each agent.</td></tr>
+      <tr><td>7</td><td><b>Effort routing</b></td><td>One model (<code>claude-opus-5-5</code>), with effort set per job: <code>low</code> for router and extraction, <code>medium</code> for specialists, <code>high</code> for the critic and Ask. Using one model also means one prompt cache.</td></tr>
+      <tr><td>8</td><td><b>Incremental rebuild</b></td><td>Each dossier is cached by a hash of its inputs. Only changed dossiers are rebuilt.</td></tr>
+      <tr><td>9</td><td><b>Semantic + prefix caching</b></td><td>Repeated questions are answered from our own cache. Claude prompt caching covers the stable prefix (system prompt, tool definitions, aircraft card), and cached reads cost about 5% of normal input. Keep timestamps and request IDs after the cached part.</td></tr>
+      <tr><td>11</td><td><b>Batch API</b></td><td>The nightly learning agent, outcome labelling and the TSM backtest run through the Message Batches API at 50% of the normal price.</td></tr>
+      <tr><td>10</td><td><b>Conversation summary</b></td><td>Ask keeps the last 6 turns plus a rolling summary, not the full history.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 11 -->
+<section id="learning">
+  <div class="sec-head"><span class="eyebrow">11 · Self-learning</span><h2>It learns from engineers and from aircraft outcomes, and every change is reviewed</h2><p>Model weights never change in production. Learning goes into versioned memory, and each change must pass the evals and get Quality approval.</p></div>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  S1["Engineer review actions"] --> LED[("Feedback ledger")]
+  S2["Fault recurrence after WO close"] --> LED
+  S3["Coach gaps"] --> LED
+  S4["Abstained questions"] --> LED
+  LED --> LA["Learning agent<br/>nightly batch"]
+  LA --> PR["Proposed memory diff"]
+  PR --> EG{"Eval gate"}
+  EG -->|worse| RJ["Rejected"]
+  EG -->|better| QA{"Quality approval"}
+  QA --> MEM[("Memory v n+1<br/>rollback-able")]
+  </pre></div>
+  <div class="grid">
+    <div class="card"><span class="tag violet">Novel</span><h3>Fix-outcome memory</h3><p>After a work order closes, the system checks AVIATAR to see whether the fault came back within N sectors. The aircraft's own data shows which fixes worked. This is closed history, not prediction.</p></div>
+    <div class="card"><h3>Retrieval weights</h3><p>Citations that engineers open and use get a higher rank. Ones they dismiss get a lower rank.</p></div>
+    <div class="card"><h3>Lexicon</h3><p>Unmatched terms become proposed abbreviations for review.</p></div>
+    <div class="card"><h3>ATA playbooks</h3><p>Checks that senior engineers keep adding become standard dossier steps.</p></div>
+    <div class="card"><h3>Curriculum</h3><p>Common trainee gaps become targeted Coach questions.</p></div>
+  </div>
+</section>
+
+<!-- 12 -->
+<section id="clean">
+  <div class="sec-head"><span class="eyebrow">12 · Clean architecture</span><h2>Ports and adapters</h2><p>The domain and rules are pure code. Agents depend on ports (interfaces), not on Excel files, Postgres or a specific model. File adapters can be swapped for live AMOS and AVIATAR APIs, and a local model for a hosted one, without touching business logic.</p></div>
+<pre class="code">lineready/
+├── domain/                 <span class="c"># pure, no I/O</span>
+│   ├── model/              <span class="c"># Aircraft, Defect, Episode, Evidence, Claim, Flag, Dossier, Brief</span>
+│   ├── rules/              <span class="c"># repetitive.py · deadline.py · readiness.py  (versioned, unit-tested)</span>
+│   └── ports/              <span class="c"># WorkOrderRepo · HealthRepo · ManualIndex · Retriever · LLM · Memory · AuditLog · Clock</span>
+├── application/
+│   ├── usecases/           <span class="c"># build_brief · build_dossier · answer_question · coach · record_review</span>
+│   ├── graphs/             <span class="c"># LangGraph: router, brief_dag, ask_react, coach</span>
+│   ├── agents/             <span class="c"># triage · historian · manuals · logistics · compliance · critic · ask · coach · learning</span>
+│   └── contracts/          <span class="c"># JSON schemas per agent output</span>
+├── retrieval/              <span class="c"># understand · exact · graph · hybrid · rrf · rerank · sufficiency · cache</span>
+├── memory/                 <span class="c"># short_term (checkpointer, session) · long_term (cards, cases, playbooks)</span>
+├── review/                 <span class="c"># schema_gate · evidence_gate · critic · policy_linter · human_review</span>
+├── learning/               <span class="c"># ledger · outcome_labeller · proposals · eval_gate · registry</span>
+├── infrastructure/
+│   ├── sources/            <span class="c"># amos_xlsx · aviatar_csv · sgml_tsm · sgml_amm · ipc · mmel_xml · car_pdf</span>
+│   ├── persistence/        <span class="c"># postgres · pgvector · edges · audit (hash-chained)</span>
+│   ├── llm/                <span class="c"># claude_adapter (structured outputs, tool use, prompt caching, batches)</span>
+│   ├── embed/              <span class="c"># bge_m3 · bge_reranker</span>
+│   └── mcp_servers/        <span class="c"># fleet · health · manuals · logistics · rules · memory</span>
+├── interfaces/             <span class="c"># api (FastAPI) · scheduler · web (Streamlit or Next.js)</span>
+└── evals/                  <span class="c"># tsm_recall_backtest · citation_precision · guardrail_redteam · golden/</span></pre>
+</section>
+
+<!-- 13 -->
+<section id="free">
+  <div class="sec-head"><span class="eyebrow">13 · Free resource stack</span><h2>Claude API for reasoning, free open source for everything else</h2><p>Only short, compressed evidence excerpts are sent to Claude, never whole manuals or databases. Embeddings and reranking run locally. Before the event, confirm with the organisers that sending anonymised records and manual excerpts to the Claude API is allowed, since the Airbus manuals are proprietary and export-controlled.</p></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Need</th><th>Free choice</th><th>License</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>LLM</td><td><b>Claude API</b> · <code>claude-opus-5-5</code> for every agent, effort per role</td><td>Paid API</td><td>Adaptive thinking, structured outputs (<code>output_config.format</code>) for every agent contract, <code>strict: true</code> tools, prompt caching, Batch API for offline jobs, server-side refusal fallback enabled</td></tr>
+      <tr><td>LLM SDK</td><td><b>Anthropic Python SDK</b> (<code>anthropic</code>)</td><td>MIT</td><td>Tool runner for Ask and Coach. LangGraph nodes call it through the LLM port.</td></tr>
+      <tr><td>Agent framework</td><td><b>LangGraph</b></td><td>MIT</td><td>State graph = blackboard, conditional edges = router, checkpointer = short-term memory, interrupt = human review</td></tr>
+      <tr><td>Tool protocol</td><td><b>MCP Python SDK</b></td><td>MIT</td><td>The same tools serve every agent and future agents</td></tr>
+      <tr><td>Embeddings</td><td><b>BGE-M3</b> (fallback bge-small-en-v1.5)</td><td>MIT</td><td>Via sentence-transformers or FlagEmbedding</td></tr>
+      <tr><td>Reranker</td><td><b>bge-reranker-v2-m3</b></td><td>Apache-2.0</td><td>Rerank the top 30 to the top 5</td></tr>
+      <tr><td>Database + vectors</td><td><b>PostgreSQL 16 + pgvector + pg_trgm</b></td><td>PostgreSQL</td><td>One database for tables, graph, vectors and full-text</td></tr>
+      <tr><td>ETL</td><td><b>DuckDB</b>, <b>Polars</b>, <b>openpyxl</b></td><td>MIT</td><td>Fast reading of the CSV and XLSX files</td></tr>
+      <tr><td>SGML parsing</td><td><b>OpenSP (osx)</b> SGML→XML, then <b>lxml</b></td><td>MIT-style / BSD</td><td>The TSM/AMM files are SGML, not XML</td></tr>
+      <tr><td>PDF text</td><td><b>pdftotext (poppler)</b>, <b>PyMuPDF</b></td><td>GPL / AGPL</td><td>Fine for internal use. Check the licence before shipping.</td></tr>
+      <tr><td>Speech (final)</td><td><b>faster-whisper</b></td><td>MIT</td><td>Offline voice questions</td></tr>
+      <tr><td>API + UI</td><td><b>FastAPI</b> + <b>Streamlit</b> (fast to build) or <b>Next.js</b></td><td>MIT / Apache-2.0</td><td>Streamlit for Round 1 speed, Next.js for the final tablet app</td></tr>
+      <tr><td>Scheduler</td><td><b>APScheduler</b></td><td>MIT</td><td>T-60 trigger and event polling</td></tr>
+      <tr><td>Tracing</td><td><b>Langfuse</b> (self-host) or <b>Arize Phoenix</b></td><td>MIT / ELv2</td><td>Per-agent traces and token counts</td></tr>
+      <tr><td>Evals</td><td><b>Ragas</b> + pytest</td><td>Apache-2.0</td><td>Faithfulness, context precision, plus our own backtest</td></tr>
+      <tr><td>Deploy</td><td><b>Docker Compose</b></td><td>Apache-2.0</td><td>One command to bring up the demo</td></tr>
+    </tbody>
+  </table></div>
+  <p class="caption">Claude has no embeddings endpoint, so BGE-M3 and the reranker stay local and free. If cost becomes an issue, the LLM port can point extraction jobs at a cheaper Claude model. Measure on the backtest before switching. Claude's built-in citations feature can't be combined with structured outputs, so citations are handled by our own evidence-ID contract and the R2 check.</p>
+</section>
+
+<!-- 14 -->
+<section id="needs">
+  <div class="sec-head"><span class="eyebrow">14 · Other resources needed</span><h2>Data, people and hardware</h2></div>
+  <div class="grid">
+    <div class="card"><span class="tag red">Data to request</span><ul><li>Flight schedule for the demo night</li><li>Engineer roster with authorisations</li><li>Tail → MSN map (for TSM/AMM effectivity)</li><li>Operator MEL (the pack has the MMEL)</li><li>Company repetitive-defect rule (MOE/TPM)</li><li>Real handover notes format</li><li>Confirmation of tool expiry dates (almost all show 20-Nov-2026)</li></ul></div>
+    <div class="card"><span class="tag">People</span><ul><li>A line engineer as domain expert: validates dossiers and writes the golden set</li><li>2 developers: data and retrieval, agents and UI</li><li>1 person on evals and the demo script</li><li>Quality contact for guardrail sign-off (final)</li></ul></div>
+    <div class="card"><span class="tag">Hardware</span><ul><li>16 GB RAM laptop is enough, because the LLM runs in the cloud through the Claude API</li><li>A GPU only speeds up embedding (optional)</li><li>~30 GB disk for manuals, the database and embedding models</li><li>Claude API key with enough credit, kept in a <code>.env</code> file and never committed</li><li>Pre-compute embeddings before the event</li></ul></div>
+    <div class="card"><span class="tag">Golden data</span><ul><li>30 hand-checked defects with the correct TSM task, history and parts</li><li>20 red-team prompts ("defer it for me", "release the aircraft")</li><li>The 5.8k WOs that already cite a TSM task, for the backtest</li></ul></div>
+  </div>
+</section>
+
+<!-- 15 -->
+<section id="eval">
+  <div class="sec-head"><span class="eyebrow">15 · Evaluation</span><h2>How we prove accuracy</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Metric</th><th>Method</th><th>Target</th></tr></thead>
+    <tbody>
+      <tr><td>TSM recall@3</td><td>Backtest on about 5.8k closed defects whose actions cite a TSM task</td><td>Report the measured value</td></tr>
+      <tr><td>Retrieval hit rate / MRR</td><td>Golden set of 30 defects</td><td>Hit@5 ≥ 90%</td></tr>
+      <tr><td>Faithfulness</td><td>Ragas plus a hand-checked sample</td><td>≥ 0.95</td></tr>
+      <tr><td>Invented references</td><td>References missing from the task table</td><td>0 (blocked at R2)</td></tr>
+      <tr><td>Guardrail violations</td><td>Red-team set</td><td>0</td></tr>
+      <tr><td>Tokens per dossier</td><td>Langfuse traces</td><td>≤ 5k</td></tr>
+      <tr><td>Brief build time</td><td>10 tails, 3 engineers, local GPU</td><td>&lt; 5 min</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 16 -->
+<section id="plan">
+  <div class="sec-head"><span class="eyebrow">16 · Build plan</span><h2>Prepare before the event, build in 10 hours</h2></div>
+  <div class="hours">
+    <div class="hour"><span class="h">Before</span><h3>Pre-work</h3><p>Docker stack up. SGML→XML. TSM fault index parsed. Demo ATA chapters chunked and embedded. Claude API key tested.</p></div>
+    <div class="hour"><span class="h">H0–2</span><h3>Data spine</h3><p>Load AMOS, AVIATAR and PHA. Episode builder. Synthetic SHJ night. Aircraft memory cards.</p></div>
+    <div class="hour"><span class="h">H2–4</span><h3>Retrieval</h3><p>Exact + graph + hybrid + RRF + rerank + sufficiency check. Rules engine.</p></div>
+    <div class="hour"><span class="h">H4–7</span><h3>Agents + review</h3><p>LangGraph router, brief DAG, five specialists, critic, R1–R3 gates, audit log.</p></div>
+    <div class="hour"><span class="h">H7–9</span><h3>UI</h3><p>Three briefs, pinned item, dossier, manual viewer, accept/edit/dismiss.</p></div>
+    <div class="hour"><span class="h">H9–10</span><h3>Proof</h3><p>Backtest number, red-team run, token counts, demo script. Stretch: Ask.</p></div>
+  </div>
+</section>
+
+<p class="foot">Built from the Use Case 4 brief, the mentor call, and a review of the data pack: AMOS (209,421 WOs, 62k stock lines, 12k tools), AVIATAR (~376k fault rows, 199 PHA cases), TSM/AMM/IPC SGML (rev 01-Nov-2026), MMEL (19-Aug-2026), CAR-M Issue 06 and CAR-145 Issue 09. Token figures are design targets. The use case screens are illustrative.</p>
+</div>
