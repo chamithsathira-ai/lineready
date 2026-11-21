@@ -3,6 +3,7 @@ name: lineready
 services:
   db:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: lineready
       POSTGRES_PASSWORD: lineready
@@ -18,6 +19,7 @@ services:
 
   app:
     build: .
+    restart: unless-stopped
     env_file:
       - path: .env
         required: false
@@ -36,6 +38,18 @@ services:
       db:
         condition: service_healthy
     command: uvicorn lineready.interfaces.api:app --host 0.0.0.0 --port 8000 --reload
+
+  # Tablet UI. Talks to the API over the compose network; only this port is public.
+  web:
+    build:
+      context: ./web
+      args:
+        LINEREADY_API_URL: http://app:8000
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - app
 
 volumes:
   pgdata:

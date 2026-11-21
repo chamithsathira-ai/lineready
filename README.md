@@ -42,14 +42,16 @@ Without `LINEREADY_API_URL` the UI runs on its built-in sample data (good for de
 
 ## Deploy on the demo server (web on 8080, API on 8888, Postgres on 5432)
 
-One-time setup, from the repo folder on the server (needs Docker with the compose plugin, Node 18.18+, and the
-data pack folders `01 Core` and `02 Supplementary`):
+Everything runs in Docker with `restart: unless-stopped`, so it comes back after a reboot. Needs Docker with the
+compose plugin and the data pack folders `01 Core` and `02 Supplementary` on the server.
 
 ```bash
+sudo systemctl enable --now docker
 cp .env.example .env
 cat >> .env <<'ENV'
-DB_PORT=5432
+WEB_PORT=8080
 API_PORT=8888
+DB_PORT=5432
 DATA_CORE_DIR=/path/to/01 Core
 DATA_SUPP_DIR=/path/to/02 Supplementary
 ENV
@@ -57,21 +59,16 @@ ENV
 
 docker compose build
 docker compose up -d db
-docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min
+docker compose run --rm app python -m lineready.interfaces.cli ingest        # ~8 min, one time
 docker compose run --rm app python -m lineready.interfaces.cli ingest cases
 docker compose run --rm app python -m lineready.interfaces.cli seed-shift
-docker compose up -d app                                                      # API on 127.0.0.1:8888
+docker compose up -d                                                          # db + API + web
 curl localhost:8888/api/health
-
-cd web
-echo "LINEREADY_API_URL=http://127.0.0.1:8888" > .env.local
-npm ci && npm run build
-npm start -- -p 8080                                                          # or your existing process manager
 ```
 
-After each `git pull`: `docker compose up -d app` (the API reloads code on its own), then in `web/`
-`npm ci && npm run build` and restart the web process. Re-run `ingest` only when the data pack changes.
-The database and API ports bind to 127.0.0.1 only; the browser reaches the API through the web app's `/backend/*` proxy.
+The web container is built with `LINEREADY_API_URL=http://app:8000` and reaches the API over the compose network.
+Postgres and the API bind to 127.0.0.1 only. After each `git pull`: `docker compose up -d --build`.
+Re-run `ingest` only when the data pack changes.
 
 Useful commands:
 
