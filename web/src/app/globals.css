@@ -243,7 +243,7 @@ html { scroll-padding-top: 24px; }
 .fields > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 12px 16px; background: var(--card); }
 .fields dt { color: var(--ink-600); font-size: 14px; }
 .fields dd { margin: 0; font-weight: 600; }
-.excerpt { padding: 14px 16px; border-radius: var(--r-md); background: var(--sunken); }
+.excerpt { padding: 14px 16px; border-radius: var(--r-md); background: var(--sunken); white-space: pre-line; }
 .chip-src { font: 500 13px/18px var(--font-mono); color: var(--ink-900); min-height: 40px; padding: 0 14px; }
 @media (pointer: coarse) { .chip-src { min-height: var(--touch); } }
 
@@ -294,3 +294,12 @@ html { scroll-padding-top: 24px; }
   .stack td { display: flow-root; border: 0; padding: 3px 0 3px 8em; }
   .stack td::before { content: attr(data-l); float: left; width: 7.5em; margin-left: -8em; color: var(--ink-400); font-size: 13px; }
 }
+
+/* ---------- live-backend additions ---------- */
+.review-reason,.field{min-height:var(--touch);padding:0 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);color:var(--ink-900);font:inherit}
+.review-reason{min-width:240px;flex:1}
+.field{width:100%}
+textarea.field{min-height:140px;padding:12px;font-family:var(--font-mono);font-size:14px;line-height:1.5}
+.field:focus-visible,.review-reason:focus-visible{outline:2px solid var(--ink-900);outline-offset:1px}
+.notice{color:var(--ink-600);font-size:13px}
+.removed{color:var(--ink-600);text-decoration:line-through}

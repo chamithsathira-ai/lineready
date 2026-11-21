@@ -1,0 +1,41 @@
+name: lineready
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lineready
+      POSTGRES_PASSWORD: lineready
+      POSTGRES_DB: lineready
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lineready"]
+      interval: 3s
+      retries: 20
+
+  app:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://lineready:lineready@db:5432/lineready
+      DATA_CORE: /data/core
+      DATA_SUPP: /data/supp
+      CACHE_DIR: /app/var
+    volumes:
+      - ./:/app
+      - "${DATA_CORE_DIR:-../01 Core}:/data/core:ro"
+      - "${DATA_SUPP_DIR:-../02 Supplementary}:/data/supp:ro"
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn lineready.interfaces.api:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:

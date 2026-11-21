@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarClock, Check, ChevronRight, Info, NotebookPen, OctagonAlert, Repeat } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, Info, NotebookPen, OctagonAlert, Radio, Repeat } from "lucide-react";
 import type { BriefCategory, BriefItem } from "@/lib/types";
 import { StatusIcon } from "@/components/ui";
 import { CATEGORY_LABEL } from "@/lib/format";
@@ -13,6 +13,7 @@ const CATEGORY_ICON: Record<BriefCategory, typeof Info> = {
   predictive: Info,
   techlog: NotebookPen,
   scheduled: CalendarClock,
+  fault: Radio,
 };
 
 /** One item row: reason icon, title, reason and source count, review state. Opens the dossier. */

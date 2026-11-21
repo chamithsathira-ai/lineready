@@ -3,11 +3,11 @@ import type { SourceRecord } from "@/lib/types";
 // Sample source previews for the demo. Field values are illustrative, not real records.
 export const mockSources: SourceRecord[] = [
   {
-    id: "WO 6185232",
+    id: "WO 6204647",
     system: "AMOS",
-    title: "Work order · deferred item, extension",
-    fields: [["Tail", "A6-AQL"], ["Status", "Open"], ["Deferral limit", "31 Oct 2026"], ["Raised", "17 Oct 2026"]],
-    excerpt: "Deferred under MEL. Extension requested by day shift 20 Nov 13:55; MCC response not recorded.",
+    title: "Work order · deferred item",
+    fields: [["Tail", "A6-AQP"], ["Status", "Open"], ["Deferral limit", "20 Oct 2026"], ["Raised", "17 Oct 2026"]],
+    excerpt: "Deferred under MEL. Limit in the action text passed 20 Oct; day shift asked MCC to confirm status 20 Nov 13:55, no reply recorded.",
   },
   {
     id: "Rule DEADLINE-01",

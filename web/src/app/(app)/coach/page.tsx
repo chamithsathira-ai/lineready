@@ -1,8 +1,24 @@
-import { getCoachExercise } from "@/lib/api";
+import { getCoachExercise, getEngineerId, LIVE } from "@/lib/api";
 import { Card, Meter, StatusBadge } from "@/components/ui";
 import { CoachPractice } from "@/components/CoachPractice";
+import { CoachPanel } from "@/components/coach/CoachPanel";
+
+export const dynamic = "force-dynamic";
 
 export default async function CoachPage() {
+  if (LIVE) {
+    const engineerId = await getEngineerId();
+    return (
+      <>
+        <header className="page-head">
+          <StatusBadge status="train">Trainee mode</StatusBadge>
+          <h1 className="t-display">Prepare tonight&rsquo;s defects</h1>
+          <p className="muted">Real defects from tonight&rsquo;s brief. You do the thinking; LineReady reviews it.</p>
+        </header>
+        <CoachPanel engineerId={engineerId} />
+      </>
+    );
+  }
   const ex = await getCoachExercise();
   return (
     <>

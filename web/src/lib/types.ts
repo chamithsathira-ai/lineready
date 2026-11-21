@@ -10,13 +10,15 @@ export type Status = "act" | "info" | "prep" | "ok" | "train";
 
 /** A pointer to a source record. Every AI claim in the UI must carry at least one. */
 export interface EvidenceRef {
-  id: string; // e.g. "WO 6185232", "rule REP-01", "TSM 34-52"
+  id: string; // display label, e.g. "WO 6204647", "Rule REP-01", "TSM 34-52-00-810-801-A"
+  /** Backend evidence id (e.g. "wo:6204647", "tsm:34-52-00-810-801-A"); makes the source openable. */
+  ref?: string;
   kind?: "wo" | "rule" | "manual" | "aviatar" | "pha" | "stores" | "techlog" | "tool" | "other";
 }
 
 export type DefectSource = "AMOS" | "AVIATAR" | "PHA" | "PIREP" | "MAREP";
 
-export type BriefCategory = "deadline" | "repetitive" | "predictive" | "techlog" | "scheduled";
+export type BriefCategory = "deadline" | "repetitive" | "predictive" | "techlog" | "scheduled" | "fault";
 
 export interface BriefItem {
   id: string;
@@ -73,6 +75,11 @@ export interface ShiftBrief {
   readinessGaps: ReadinessGap[];
   readinessSentAt: string;
   handover: { from: string; at: string; text: string };
+  /** Set when served by the backend. */
+  briefId?: number;
+  engineerId?: string;
+  live?: boolean;
+  notice?: string;
 }
 
 export interface TimelineEvent {
@@ -115,6 +122,10 @@ export interface Dossier {
   references: ReferenceRow[];
   revision?: string;
   parts: PartRow[];
+  /** "llm_verified" when the summary was written by AI and passed the critic; otherwise a code template. */
+  summarySource?: string;
+  /** Sentences the review layer removed, with the gate and reason. */
+  removed?: { text: string; gate: string; reason: string }[];
 }
 
 export interface ManualTask {
@@ -124,6 +135,8 @@ export interface ManualTask {
   effectivity: string;
   steps: string[];
   fromDossier?: string;
+  causes?: string[];
+  refs?: { man: string; ref: string; title: string }[];
 }
 
 export interface ReadinessRow {
