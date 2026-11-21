@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Check, ChevronRight, Info, NotebookPen, OctagonAlert, Repeat, CalendarClock } from "lucide-react";
+import { Check, ChevronRight, Info, NotebookPen, OctagonAlert, Repeat, CalendarClock, Radio } from "lucide-react";
 import type { BriefCategory, BriefItem, ShiftBrief } from "@/lib/types";
 import { StatusBadge, StatusIcon } from "@/components/ui";
 import { CATEGORY_LABEL, timeLeft } from "@/lib/format";
@@ -17,6 +17,7 @@ const FILTERS: { id: Filter; label: string; match: (i: BriefItem) => boolean }[]
   { id: "predictive", label: "Predictive", match: (i) => i.category === "predictive" },
   { id: "techlog", label: "Tech log", match: (i) => i.category === "techlog" },
   { id: "scheduled", label: "Scheduled", match: (i) => i.category === "scheduled" },
+  { id: "fault", label: "Aircraft faults", match: (i) => i.category === "fault" },
 ];
 
 const CATEGORY_ICON: Record<BriefCategory, typeof Info> = {
@@ -25,6 +26,7 @@ const CATEGORY_ICON: Record<BriefCategory, typeof Info> = {
   predictive: Info,
   techlog: NotebookPen,
   scheduled: CalendarClock,
+  fault: Radio,
 };
 
 /** Filter chips + items grouped by aircraft, in departure order. Counts live only on the chips. */

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { BookOpen, ClipboardList, GraduationCap, MessageCircle, Package, Plane, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { BookOpen, ClipboardList, FileCheck, GraduationCap, MessageCircle, Package, Plane, User } from "lucide-react";
+import { getJSON } from "@/lib/client";
 import { useAppState, type Role } from "./AppState";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -15,10 +16,11 @@ const ASK: NavItem = { href: "/ask", label: "Ask", icon: MessageCircle };
 const MANUALS: NavItem = { href: "/manuals", label: "Manuals", icon: BookOpen };
 const READINESS: NavItem = { href: "/readiness", label: "Readiness", icon: Package };
 const COACH: NavItem = { href: "/coach", label: "Coach", icon: GraduationCap };
+const LOGBOOK: NavItem = { href: "/logbook", label: "Logbook", icon: FileCheck };
 
 /** Each role sees only the destinations it needs. */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
-  engineer: [TONIGHT, AIRCRAFT, ASK, MANUALS],
+  engineer: [TONIGHT, AIRCRAFT, ASK, MANUALS, LOGBOOK],
   lead: [TONIGHT, READINESS, AIRCRAFT, ASK],
   trainee: [COACH, MANUALS, ASK],
 };
@@ -42,9 +44,30 @@ function NavLinks() {
   );
 }
 
+interface Engineer { engineer_id: string; name: string; role: string; licence: string; aircraft: number }
+
+function readCookie(name: string): string | undefined {
+  return document.cookie.split("; ").find((c) => c.startsWith(name + "="))?.split("=")[1];
+}
+
 function MeMenu() {
   const { role, setRole } = useAppState();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [engineers, setEngineers] = useState<Engineer[]>([]);
+  const [current, setCurrent] = useState("E1");
+
+  useEffect(() => {
+    setCurrent(readCookie("lr-engineer") ?? "E1");
+    getJSON<Engineer[]>("/engineers").then(setEngineers).catch(() => setEngineers([])); // empty in demo mode
+  }, []);
+
+  const pick = (id: string) => {
+    document.cookie = `lr-engineer=${id}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+    setCurrent(id);
+    router.refresh(); // server pages re-read the cookie and load this engineer's brief
+  };
+  const me = engineers.find((e) => e.engineer_id === current);
   return (
     <div className="me">
       <button type="button" className="nav-item" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
@@ -53,7 +76,19 @@ function MeMenu() {
       </button>
       {open && (
         <div className="me-menu card" role="menu">
-          <p className="t-label">Engineer B1</p>
+          <p className="t-label">{me ? `${me.name} · ${me.licence}` : "Engineer"}</p>
+          {engineers.length > 0 && (
+            <>
+              <p className="t-caption">Brief for</p>
+              <div className="seg" role="group" aria-label="Engineer">
+                {engineers.map((e) => (
+                  <button key={e.engineer_id} type="button" aria-pressed={current === e.engineer_id} onClick={() => pick(e.engineer_id)}>
+                    {e.name} · {e.aircraft} a/c
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <p className="t-caption">View as</p>
           <div className="seg" role="group" aria-label="Role">
             {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (

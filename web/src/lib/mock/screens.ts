@@ -37,9 +37,9 @@ export const mockDossiers: Dossier[] = [
     id: "a6-aql-deferral",
     itemId: "b-aql-deadline",
     version: "v1",
-    summary: "The deferred item extension ended on 31 Oct and the work order is still open. The aircraft cannot depart on an expired deferral.",
+    summary: "The deferral limit in the AMOS action text passed on 20 Oct and the work order is still open. The aircraft cannot depart on an expired deferral.",
     timeline: [
-      { when: "31 Oct", text: "Deferral extension limit reached.", hot: true },
+      { when: "20 Oct", text: "Deferral limit reached.", hot: true },
       { when: "20 Nov 13:55 · Day shift", text: "Extension requested from MCC. No reply logged." },
       { when: "Tonight 02:40", text: "Scheduled departure.", hot: true },
     ],
@@ -94,7 +94,7 @@ export const mockManualTasks: ManualTask[] = [
 
 export const mockReadiness: ReadinessRow[] = [
   { tail: "A6-ANS", departure: "01:55", parts: "ok", tools: "ok", manuals: "ok", note: "Ready" },
-  { tail: "A6-AQL", departure: "02:40", parts: "ok", tools: "ok", manuals: "ok", note: "Awaiting MCC on deferral" },
+  { tail: "A6-AQP", departure: "02:40", parts: "ok", tools: "ok", manuals: "ok", note: "Awaiting MCC on deferral" },
   { tail: "A6-ARM", departure: "03:15", parts: "ok", tools: "info", manuals: "ok", note: "Test set calibration due" },
   { tail: "A6-AOJ", departure: "Night stop", parts: "act", tools: "ok", manuals: "ok", note: "Brake assembly unserviceable" },
 ];

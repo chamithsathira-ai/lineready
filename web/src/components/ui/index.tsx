@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { Check, ChevronRight, FileText, GraduationCap, Info, ListChecks, OctagonAlert } from "lucide-react";
 import type { EvidenceRef, Status } from "@/lib/types";
+import { sourceHref } from "@/lib/client";
 
 const STATUS_META: Record<Status, { icon: typeof Info; label: string }> = {
   act: { icon: OctagonAlert, label: "Act before departure" },
@@ -83,7 +84,8 @@ export function CardHead({ kicker, title, right }: { kicker?: string; title: str
 }
 
 /** A full-width, 48 px+ source row. Opens the record, manual task or rule it points to. */
-export function SourceRow({ evidence, title, href }: { evidence: EvidenceRef; title?: string; href?: string }) {
+export function SourceRow({ evidence, title, href: hrefIn }: { evidence: EvidenceRef; title?: string; href?: string }) {
+  const href = hrefIn ?? sourceHref(evidence.ref);
   const body = (
     <>
       <span className="ico ico-neutral">

@@ -15,6 +15,7 @@ export default async function TonightPage() {
   return (
     <>
       <ShiftHeader brief={brief} title={greeting(brief)} />
+      {brief.notice && <p className="notice">{brief.notice}</p>}
       <div className="grid">
         <div className="col">
           {next && <NextUpCard brief={brief} item={next} />}

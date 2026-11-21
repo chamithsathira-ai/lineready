@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LineReady · Shift Brief</title>
+<style>
+:root{
+  --paper:#f4f6f8; --sheet:#fff; --ink:#14202b; --muted:#5a6773; --rule:#d7dee5;
+  --accent:#0f5e8c; --accent-soft:#e3eef5; --red:#b3261e; --red-soft:#fbe6e4;
+  --amber:#9a5c00; --amber-soft:#fdf1dc; --green:#2e7d4f; --green-soft:#e2f2e8; --violet:#5b4bb0; --violet-soft:#ecebfa;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#0f161d; --sheet:#16202a; --ink:#e4ebf1; --muted:#9aa8b5; --rule:#2a3845;
+  --accent:#6cb4e4; --accent-soft:#18324a; --red:#f2867e; --red-soft:#3d1a18;
+  --amber:#f0a83a; --amber-soft:#3a2a10; --green:#6fcf97; --green-soft:#16301f; --violet:#a99cf0; --violet-soft:#26224a; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans)}
+header{background:var(--sheet);border-bottom:1px solid var(--rule);padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;letter-spacing:.02em}
+header h1 span{color:var(--accent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--rule);background:var(--paper);color:var(--ink);padding:6px 12px;border-radius:5px;cursor:pointer;font:inherit}
+.tabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:auto}
+.notice{background:var(--amber-soft);color:var(--amber);font-size:13px;padding:6px 20px}
+main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;padding:20px;max-width:1400px;margin:0 auto}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+aside{display:flex;flex-direction:column;gap:14px}
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:14px}
+.panel h2{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 10px}
+.ac{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.ac:last-child{border-bottom:0}
+.ac b{font-family:var(--mono)}
+.ac small{color:var(--muted);font-family:var(--mono);font-size:12px}
+.ho{font-size:13px;color:var(--muted);padding:6px 0;border-bottom:1px dashed var(--rule)}
+.ho:last-child{border-bottom:0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}
+.stats div{display:flex;flex-direction:column}
+.stats b{font-size:18px;font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.card.pinned{border:2px solid var(--red)}
+.card .head{display:grid;grid-template-columns:96px 1fr auto;gap:12px;padding:14px 16px;cursor:pointer;align-items:start}
+.card .head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.reg{font-family:var(--mono);font-weight:600}
+.kind{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.title{font-weight:600}
+.summary{color:var(--muted);font-size:14px;margin-top:4px}
+.src{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:3px;background:var(--accent-soft);color:var(--accent);margin-left:6px;white-space:nowrap}
+.flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.flag{font-family:var(--mono);font-size:11.5px;padding:2px 7px;border-radius:3px}
+.flag.critical{background:var(--red-soft);color:var(--red)}
+.flag.warning{background:var(--amber-soft);color:var(--amber)}
+.flag.info{background:var(--accent-soft);color:var(--accent)}
+.score{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+.reviewed{font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:3px;background:var(--green-soft);color:var(--green)}
+.body{border-top:1px solid var(--rule);padding:12px 16px;display:none;flex-direction:column;gap:14px}
+.card.open .body{display:flex}
+.sec h3{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 6px}
+.claim{display:grid;grid-template-columns:112px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule);font-size:14px}
+.claim:last-child{border-bottom:0}
+.conf{font-family:var(--mono);font-size:10.5px;padding:2px 6px;border-radius:3px;height:fit-content;text-align:center}
+.conf.exact_match{background:var(--green-soft);color:var(--green)}
+.conf.retrieved_verified{background:var(--accent-soft);color:var(--accent)}
+.conf.fleet_history{background:var(--amber-soft);color:var(--amber)}
+.conf.information_only{background:var(--red-soft);color:var(--red)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.chip{font-family:var(--mono);font-size:11px;border:1px solid var(--rule);border-radius:3px;padding:1px 6px;background:var(--paper);color:var(--ink);cursor:pointer}
+.chip:hover,.chip:focus-visible{border-color:var(--accent);color:var(--accent)}
+.removed{font-size:13px;color:var(--muted)}
+.review{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--paper);padding:10px;border-radius:5px}
+.review input{flex:1;min-width:200px;padding:7px 9px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);color:var(--ink);font:inherit}
+.btn{border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:6px 12px;border-radius:4px;cursor:pointer;font:inherit;font-size:14px}
+.btn.ok{border-color:var(--green);color:var(--green)}
+.btn.no{border-color:var(--red);color:var(--red)}
+.disclaimer{font-size:12px;color:var(--muted)}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--sheet);border-left:1px solid var(--rule);box-shadow:-8px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;z-index:10;display:flex;flex-direction:column}
+#drawer.open{transform:none}
+#drawer .dh{padding:14px 18px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;gap:10px;align-items:center}
+#drawer .dc{padding:16px 18px;overflow:auto;font-size:14px}
+.rev{background:var(--green-soft);color:var(--green);font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:4px;margin-bottom:12px}
+.rev.info{background:var(--amber-soft);color:var(--amber)}
+pre.body-text{white-space:pre-wrap;font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--paper);padding:12px;border-radius:4px}
+.view{padding:20px;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.row input,.view select,.view textarea{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet);color:var(--ink);font:inherit}
+.view textarea{width:100%;font-family:var(--mono);font-size:13px}
+.ans{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.ans .q{font-weight:600}
+.ok-row{color:var(--green)} .bad-row{color:var(--red)} .na-row{color:var(--muted)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){#drawer{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Line<span>Ready</span></h1>
+  <div class="tabs" id="views" role="group" aria-label="Mode">
+    <button data-v="brief" aria-pressed="true">Brief</button><button data-v="ask" aria-pressed="false">Ask</button>
+    <button data-v="coach" aria-pressed="false">Coach</button><button data-v="logbook" aria-pressed="false">Logbook check</button>
+  </div>
+  <div class="tabs" id="tabs" role="group" aria-label="Engineer"></div>
+  <button class="btn" id="rebuild" title="Rebuild the brief from current data">Rebuild brief</button>
+  <div class="meta" id="meta"></div>
+</header>
+<div class="notice" id="notice"></div>
+<main id="view-brief">
+  <aside>
+    <div class="panel"><h2>My aircraft tonight</h2><div id="aircraft"></div></div>
+    <div class="panel"><h2>Last shift handover</h2><div id="handover"></div></div>
+    <div class="panel"><h2>Fleet-wide messages · information only</h2><div id="fleet"></div></div>
+    <div class="panel"><h2>Shift lead notified</h2><div id="lead" class="ho"></div></div>
+    <div class="panel"><h2>Brief build</h2><div class="stats" id="stats"></div></div>
+  </aside>
+  <section>
+    <div class="list" id="list"><div class="empty">Loading brief…</div></div>
+    <p class="disclaimer">LineReady prepares and checks. It never signs, defers or releases. The certifying engineer performs the work and signs every record.</p>
+  </section>
+</main>
+<section class="view" id="view-ask" hidden>
+  <div class="panel">
+    <h2>Ask · answers only from controlled data, with sources</h2>
+    <form id="askf" class="row"><input id="askq" placeholder="e.g. Has A6-AOJ had brake temperature problems before? What does the TSM say?" aria-label="Question"><button class="btn ok">Ask</button></form>
+    <div class="kind">Examples:
+      <button class="chip" data-q="What does the TSM say for BRAKES HOT, and what are the possible causes?">BRAKES HOT in the TSM</button>
+      <button class="chip" data-q="Has A6-AOJ had GPS faults before and what was done?">A6-AOJ GPS history</button>
+      <button class="chip" data-q="Is part 1J520-10360-000 in stock at Sharjah?">Stock check</button></div>
+  </div>
+  <div id="answers" class="list"></div>
+</section>
+<section class="view" id="view-coach" hidden>
+  <div class="panel"><h2>Coach mode · the trainee prepares, the agent reviews</h2>
+    <div class="row"><label class="kind" for="trainee">Trainee</label><input id="trainee" value="Trainee T1">
+      <select id="exsel" aria-label="Exercise"></select></div>
+    <div id="exbody"></div>
+  </div>
+  <div id="coachout"></div>
+</section>
+<section class="view" id="view-logbook" hidden>
+  <div class="panel"><h2>Logbook sign-off check · flags gaps before you sign</h2>
+    <div class="row"><input id="lbwo" placeholder="WO number (optional)" style="max-width:220px"><label class="kind"><input type="checkbox" id="lbdeep"> AI deep check against the TSM task (uses tokens)</label></div>
+    <textarea id="lbtext" rows="6" aria-label="Draft entry">BRAKES HOT ON ARRIVAL. CARRIED OUT TROUBLESHOOTING IAW TSM 32-42-00-810-921-A. REPLACED BRAKE ASSY WHEEL 2.</textarea>
+    <div class="row"><button class="btn ok" id="lbgo">Check entry</button></div>
+  </div>
+  <div id="lbout"></div>
+</section>
+<div id="drawer" role="dialog" aria-modal="false" aria-labelledby="dtitle">
+  <div class="dh"><b id="dtitle">Source</b><button class="btn" id="dclose">Close</button></div>
+  <div class="dc" id="dcontent"></div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtT = s => s ? new Date(s).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", hour12:false}) : "–";
+const CONF = {exact_match:"exact", retrieved_verified:"verified", fleet_history:"history", information_only:"info only"};
+const KIND = {aviatar_episode:"Aircraft fault", predictive_case:"Predictive · read only", open_defect:"Open defect"};
+let state = {engineer:"E1", brief:null, reviews:{}};
+
+async function api(path, opts){ const r = await fetch(path, opts); if(!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); }
+
+async function init(){
+  const [engs, health] = await Promise.all([api("/api/engineers"), api("/api/health")]);
+  $("#tabs").innerHTML = engs.map(e => `<button data-e="${esc(e.engineer_id)}" aria-pressed="${e.engineer_id===state.engineer}">${esc(e.name)} · ${e.aircraft} a/c</button>`).join("");
+  $("#tabs").onclick = ev => { const b = ev.target.closest("button"); if(b){ state.engineer = b.dataset.e; load(); } };
+  $("#meta").textContent = `as of ${new Date(health.as_of).toLocaleString([], {dateStyle:"medium", timeStyle:"short", hour12:false})} · TSM ${health.tsm?.revision ?? "?"} · AI ${health.llm_enabled ? "on ("+health.model+")" : "off (template mode)"}`;
+  $("#rebuild").onclick = () => load(true);
+  $("#list").addEventListener("click", ev => {
+    const t = ev.target.closest("[data-ev],[data-act],[data-toggle]");
+    if(!t) return;
+    if(t.dataset.ev){ openEvidence(t.dataset.ev); }
+    else if(t.dataset.act){ review(t.dataset.item, t.dataset.act); }
+    else toggle(t);
+  });
+  $("#list").addEventListener("keydown", ev => { if(ev.key==="Enter" && ev.target.dataset.toggle) toggle(ev.target); });
+  $("#dclose").onclick = () => $("#drawer").classList.remove("open");
+  load();
+}
+
+async function load(rebuild=false){
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.e===state.engineer));
+  $("#list").innerHTML = `<div class="empty">${rebuild ? "Rebuilding brief: agents running…" : "Loading brief…"}</div>`;
+  try{
+    const b = await api(`/api/brief/${state.engineer}${rebuild ? "?rebuild=true" : ""}`);
+    state.brief = b;
+    const fb = await api(`/api/feedback/${b.brief_id}`);
+    state.reviews = Object.fromEntries(fb.map(f => [f.item_id, f]));
+    render();
+  }catch(e){ $("#list").innerHTML = `<div class="empty">Could not load the brief: ${esc(e.message)}</div>`; }
+}
+
+function render(){
+  const b = state.brief;
+  $("#notice").textContent = b.synthetic_notice || "";
+  $("#aircraft").innerHTML = b.aircraft.map(a => `<div class="ac"><b>${esc(a.reg)}</b><span>${esc(a.flight_out||"")} · stand ${esc(a.stand||"–")}</span><span></span><small>arr ${fmtT(a.arrival)} → dep ${fmtT(a.departure)}</small></div>`).join("");
+  $("#handover").innerHTML = b.handover.length ? b.handover.map(h => `<div class="ho"><b>${esc(h.reg)}</b> ${esc(h.note)}</div>`).join("") : `<div class="ho">No handover notes.</div>`;
+  const fp = Object.entries(b.fleet_patterns || {}).flatMap(([reg, ms]) => ms.map(m => ({reg, ...m})));
+  const byMsg = {};
+  fp.forEach(m => { (byMsg[m.message] ??= {m, regs: []}).regs.push(`${m.reg} (${m.flights} flt)`); });
+  $("#fleet").innerHTML = Object.values(byMsg).length ? Object.values(byMsg).map(({m, regs}) =>
+    `<div class="ho"><b>${esc(m.message)}</b><br>on ${m.fleet_tails} of ${m.active_tails} active tails in 72 h · yours: ${esc(regs.join(", "))}</div>`).join("")
+    + `<div class="ho">Reported across most of the fleet, so not escalated as a tail defect. Compare before troubleshooting.</div>`
+    : `<div class="ho">None.</div>`;
+  $("#lead").innerHTML = b.notify_lead.length ? b.notify_lead.map(esc).join("<br>") : "No readiness gaps found.";
+  const s = b.stats;
+  $("#stats").innerHTML = [["Dossiers", s.dossiers], ["Flags", s.flags], ["Evidence links", s.evidence_items], ["Removed by review", s.removed_by_review], ["AI calls", s.llm_calls], ["AI tokens in/out", `${s.llm_input_tokens}/${s.llm_output_tokens}`], ["Build time", s.build_seconds+" s"], ["Brief #", b.brief_id]]
+    .map(([k,v]) => `<div><span class="kind">${k}</span><b>${esc(v)}</b></div>`).join("");
+  const pinnedId = b.pinned?.item_id;
+  $("#list").innerHTML = b.dossiers.length ? b.dossiers.map(d => card(d, d.item_id===pinnedId)).join("") : `<div class="empty">Nothing needs attention on these aircraft.</div>`;
+}
+
+function card(d, pinned){
+  const flags = d.flags.map(f => `<span class="flag ${f.severity}" title="${esc(f.detail)}">${esc(f.rule_id)} · ${esc(f.title)}</span>`).join("");
+  const rv = state.reviews[d.item_id];
+  const sec = (name, claims) => claims.length ? `<div class="sec"><h3>${name}</h3>${claims.map(claim).join("")}</div>` : "";
+  const removed = d.removed_by_review?.length ? `<div class="sec"><h3>Removed by review</h3>${d.removed_by_review.map(r => `<div class="removed">✕ <s>${esc(r.text)}</s> — ${esc(r.gate)}: ${esc(r.reason)}</div>`).join("")}</div>` : "";
+  return `<article class="card ${pinned ? "pinned open" : ""}" data-id="${esc(d.item_id)}">
+    <div class="head" tabindex="0" role="button" aria-expanded="${pinned}" data-toggle="1">
+      <div><div class="reg">${esc(d.reg)}</div><div class="kind">${esc(KIND[d.kind]||d.kind)}</div></div>
+      <div><div class="title">${pinned ? "⚑ Attention · " : ""}${esc(d.title)}</div>
+        <div class="summary">${esc(d.summary)}<span class="src">${d.summary_source==="llm_verified" ? "AI · verified" : "template"}</span></div>
+        <div class="flags">${flags}${rv ? `<span class="reviewed">${esc(rv.action)}ed</span>` : ""}</div></div>
+      <div class="score">ATA ${esc(d.ata||"–")}<br>score ${d.score}</div>
+    </div>
+    <div class="body">
+      ${d.flags.map(f => `<div class="claim"><span class="flag ${f.severity}">${esc(f.rule_id)}</span><div>${esc(f.title)}. ${esc(f.detail)}${chips(f.evidence_ids)}</div></div>`).join("")}
+      ${sec("Symptom", d.symptom)}${sec("Manual references", d.references)}${sec("History", d.history)}${sec("Readiness · parts and tools", d.readiness)}${removed}
+      <div class="review">
+        <input data-reason="${esc(d.item_id)}" placeholder="Reason (required to edit or dismiss)" aria-label="Review reason">
+        <button class="btn ok" data-act="accept" data-item="${esc(d.item_id)}">Accept</button>
+        <button class="btn" data-act="edit" data-item="${esc(d.item_id)}">Edit</button>
+        <button class="btn no" data-act="dismiss" data-item="${esc(d.item_id)}">Dismiss</button>
+        <span class="kind" data-status="${esc(d.item_id)}"></span>
+      </div>
+    </div></article>`;
+}
+const claim = c => `<div class="claim"><span class="conf ${c.confidence}">${CONF[c.confidence]||c.confidence}</span><div>${esc(c.text)}${chips(c.evidence_ids)}</div></div>`;
+const chips = ids => `<div class="chips">${ids.map(i => `<button class="chip" data-ev="${esc(i)}">${esc(i)}</button>`).join("")}</div>`;
+function toggle(head){ const c = head.parentElement; c.classList.toggle("open"); head.setAttribute("aria-expanded", c.classList.contains("open")); }
+
+const byData = (attr, v) => [...document.querySelectorAll(`[${attr}]`)].find(el => el.getAttribute(attr) === v);
+async function review(itemId, action){
+  const reason = byData("data-reason", itemId).value;
+  const status = byData("data-status", itemId);
+  try{
+    const r = await api("/api/feedback", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({engineer_id: state.engineer, brief_id: state.brief.brief_id, item_id: itemId, action, reason, edited_text: action==="edit" ? reason : ""})});
+    state.reviews[itemId] = {action};
+    status.textContent = `Recorded · audit ${r.audit_hash}`;
+  }catch(e){ status.textContent = e.message; }
+}
+
+async function openEvidence(id){
+  const d = state.brief?.dossiers.find(x => x.evidence[id]);
+  const e = d?.evidence[id];
+  $("#dtitle").textContent = e ? e.label : id;
+  let html = "";
+  if(id.startsWith("tsm:")){
+    try{
+      const t = await api("/api/task/" + encodeURIComponent(id.slice(4)));
+      html = `<div class="rev">Controlled source · TSM ${esc(t.revision)} · task revised ${esc(t.revdate)} · effectivity ${esc(t.effrg)}</div>
+        <h3>${esc(t.task_id)} · ${esc(t.title)}</h3>
+        ${t.causes?.length ? `<p><b>Possible causes (TSM):</b> ${t.causes.map(c => esc(c.name)+(c.fin?` (${esc(c.fin)})`:"")).join("; ")}</p>` : ""}
+        ${t.refs?.length ? `<p><b>Referenced tasks:</b><br>${t.refs.map(r => `${esc(r.man)} ${esc(r.ref)} · ${esc(r.title)}`).join("<br>")}</p>` : ""}
+        <pre class="body-text">${esc(t.body)}</pre>`;
+    }catch(err){ html = esc(err.message); }
+  } else if(id.startsWith("wo:")){
+    try{
+      const w = await api("/api/wo/" + encodeURIComponent(id.slice(3)));
+      html = `<div class="rev">AMOS work order · ${esc(w.state)}</div><p><b>${esc(w.reg)} · ${esc(w.wo_type)} · ATA ${esc(w.ata)}</b><br>opened ${esc(w.date_opened)} · closed ${esc(w.date_closed||"–")}</p>
+        <h3>Description</h3><pre class="body-text">${esc(w.description)}</pre><h3>Actions</h3><pre class="body-text">${esc((w.actions||"").split(" | ").join("\n"))}</pre>`;
+    }catch(err){ html = esc(err.message); }
+  } else if(e){
+    html = `<div class="rev ${e.approved ? "" : "info"}">${esc(e.source)} · ${e.approved ? "controlled / system of record" : "information only"}${e.revision ? " · "+esc(e.revision) : ""}</div>
+      <pre class="body-text">${esc(e.excerpt)}</pre>${e.url ? `<p><a href="${esc(e.url)}" target="_blank" rel="noopener">Open in AVIATAR</a></p>` : ""}`;
+  } else html = "Evidence not found in this brief.";
+  $("#dcontent").innerHTML = html;
+  $("#drawer").classList.add("open");
+}
+// ---------- views ----------
+function showView(v){
+  document.querySelectorAll("#views button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v===v));
+  $("#view-brief").hidden = v!=="brief";
+  ["ask","coach","logbook"].forEach(x => $("#view-"+x).hidden = v!==x);
+  if(v==="coach") loadExercises();
+}
+$("#views").onclick = ev => { const b = ev.target.closest("button"); if(b) showView(b.dataset.v); };
+document.addEventListener("click", ev => { const t = ev.target.closest("[data-ev]"); if(t && !t.closest("#list")) openEvidence(t.dataset.ev); });
+
+// ---------- Ask ----------
+let askSession = null;
+async function doAsk(q){
+  if(!q.trim()) return;
+  const box = document.createElement("div"); box.className = "ans";
+  box.innerHTML = `<div class="q">${esc(q)}</div><div class="kind">Looking it up…</div>`;
+  $("#answers").prepend(box);
+  try{
+    const r = await api("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({engineer_id: state.engineer, question: q, session_id: askSession})});
+    askSession = r.session_id;
+    box.innerHTML = `<div class="q">${esc(q)}</div><div>${esc(r.answer)}</div>
+      <div class="chips">${(r.citations||[]).map(c => `<button class="chip" data-ev="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+      <div class="kind">${r.found ? "Found in controlled data" : "Not found / partial"} · tools: ${esc((r.tools_used||[]).join(", ")||"none")}
+      ${r.removed_citations?.length ? " · "+r.removed_citations.length+" unsupported citation(s) removed" : ""} · tokens ${r.tokens?.in ?? 0}/${r.tokens?.out ?? 0}</div>`;
+  }catch(e){ box.innerHTML = `<div class="q">${esc(q)}</div><div class="bad-row">${esc(e.message)}</div>`; }
+}
+$("#askf").onsubmit = ev => { ev.preventDefault(); doAsk($("#askq").value); $("#askq").value = ""; };
+$("#view-ask").addEventListener("click", ev => { const t = ev.target.closest("[data-q]"); if(t) doAsk(t.dataset.q); });
+
+// ---------- Coach ----------
+let exList = [];
+async function loadExercises(){
+  exList = await api("/api/coach/exercises/" + state.engineer);
+  $("#exsel").innerHTML = exList.map((e,i) => `<option value="${i}">${esc(e.reg)} · ${esc(e.title.slice(0,70))}</option>`).join("");
+  $("#exsel").onchange = renderExercise; renderExercise();
+}
+function renderExercise(){
+  const e = exList[$("#exsel").value || 0];
+  if(!e){ $("#exbody").innerHTML = `<p class="kind">No exercises yet. Build a brief first.</p>`; return; }
+  $("#exbody").innerHTML = `<p><b>${esc(e.reg)}</b> · ATA ${esc(e.ata||"–")}</p>${e.symptom.map(s => `<p>${esc(s)}</p>`).join("")}
+    <label class="kind" for="cx1">1. Which TSM task would you start with?</label><input id="cx1" placeholder="e.g. 32-42-00-810-9xx-A">
+    <label class="kind" for="cx2">2. What history matters? (WO numbers, repetitive? deadline?)</label><textarea id="cx2" rows="3"></textarea>
+    <label class="kind" for="cx3">3. Which parts or tools will you need? (P/N)</label><input id="cx3">
+    <div class="row"><button class="btn ok" id="cxgo">Submit for review</button></div>`;
+  $("#cxgo").onclick = submitCoach;
+}
+async function submitCoach(){
+  const e = exList[$("#exsel").value || 0];
+  $("#coachout").innerHTML = `<div class="ans kind">Reviewing…</div>`;
+  const r = await api("/api/coach/submit", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({trainee: $("#trainee").value, engineer_id: state.engineer, item_id: e.item_id,
+      tsm_task: $("#cx1").value, history_notes: $("#cx2").value, parts: $("#cx3").value})});
+  if(r.error){ $("#coachout").innerHTML = `<div class="ans bad-row">${esc(r.error)}</div>`; return; }
+  const s = r.score, f = r.feedback;
+  $("#coachout").innerHTML = `<div class="ans"><div class="q">Score ${s.points} · TSM task: ${esc(s.tsm_task)} · history ${esc(s.history_records_found)} · parts ${esc(s.parts_found)} · flags ${esc(s.flags_noticed)}</div>
+    <div class="ok-row">${esc(f.well_done)}</div>
+    <div><b>Think about:</b><ul>${f.questions.map(q => `<li>${esc(q)}</li>`).join("")}</ul></div>
+    <div class="kind">Look at: ${f.look_at.map(esc).join(" · ")}</div>
+    ${r.answer_key ? `<div class="kind">Answer key unlocked: TSM ${r.answer_key.tasks.map(esc).join(", ")}</div>` : `<div class="kind">The answer key unlocks once the TSM task is right.</div>`}</div>`;
+}
+
+// ---------- Logbook ----------
+$("#lbgo").onclick = async () => {
+  $("#lbout").innerHTML = `<div class="ans kind">Checking…</div>`;
+  try{
+    const r = await api("/api/logbook/check", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({engineer_id: state.engineer, entry: $("#lbtext").value, wo_number: $("#lbwo").value || null, deep: $("#lbdeep").checked})});
+    $("#lbout").innerHTML = `<div class="ans"><div class="q">${r.gaps ? r.gaps+" gap(s) to fix before signing" : "No gaps found by the checks"}</div>
+      ${r.findings.map(f => `<div class="${f.ok===true?"ok-row":f.ok===false?"bad-row":"na-row"}">${f.ok===true?"✓":f.ok===false?"✕":"–"} <b>${esc(f.rule_id)}</b> ${esc(f.rule)}: ${esc(f.detail)}
+        ${f.manual_page ? `<button class="chip" data-ev="${esc(f.manual_page)}">${esc(f.manual_page)}</button>` : ""}</div>`).join("")}
+      ${r.deep_check?.missing?.length ? `<div><b>AI deep check (vs TSM outline):</b><ul>${r.deep_check.missing.map(m => `<li>${esc(m.item)} <span class="kind">“${esc(m.from_outline)}”</span></li>`).join("")}</ul></div>` : ""}
+      <div class="kind">${esc(r.note)}</div></div>`;
+  }catch(e){ $("#lbout").innerHTML = `<div class="ans bad-row">${esc(e.message)}</div>`; }
+};
+init();
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, ShieldCheck } from "lucide-react";
 import type { ShiftBrief } from "@/lib/types";
 import { Meter } from "@/components/ui";
@@ -39,11 +40,21 @@ export function ShiftHeader({ brief, title }: { brief: ShiftBrief; title: string
   );
 }
 
+/** Search hands the query to Ask, which looks it up across records and manuals with sources. */
 export function SearchField({ placeholder }: { placeholder: string }) {
+  const router = useRouter();
+  const [q, setQ] = useState("");
   return (
-    <label className="search">
+    <form
+      className="search"
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (q.trim()) router.push(`/ask?q=${encodeURIComponent(q.trim())}`);
+      }}
+    >
       <Search size={18} aria-hidden />
-      <input type="search" placeholder={placeholder} aria-label={placeholder} />
-    </label>
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+    </form>
   );
 }

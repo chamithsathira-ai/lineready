@@ -23,9 +23,11 @@ function Empty({ text }: { text: string }) {
   );
 }
 
-export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefItem }) {
+export function DossierView({ dossier, item, briefId, engineerId }: { dossier: Dossier; item: BriefItem; briefId?: number; engineerId?: string }) {
   const [tab, setTab] = useState<Tab>("summary");
-  const manualHref = dossier.manualTaskId ? `/manuals?task=${dossier.manualTaskId}` : undefined;
+  const manualHref = dossier.manualTaskId
+    ? `/manuals?task=${encodeURIComponent(dossier.manualTaskId)}&from=${encodeURIComponent(dossier.id)}`
+    : undefined;
 
   return (
     <>
@@ -42,12 +44,29 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
           <Card>
             <h2 className="t-heading">What is happening</h2>
             <p>{dossier.summary}</p>
+            {dossier.summarySource && (
+              <p className="t-caption">
+                {dossier.summarySource === "llm_verified"
+                  ? "Summary written by AI and checked sentence by sentence against the sources."
+                  : "Summary built from the records by rules (no AI)."}
+              </p>
+            )}
+            {!!dossier.removed?.length && (
+              <details>
+                <summary className="t-caption">{dossier.removed.length} sentence(s) removed by the review layer</summary>
+                {dossier.removed.map((r, n) => (
+                  <p key={n} className="t-caption">
+                    <span className="removed">{r.text}</span> · {r.gate}: {r.reason}
+                  </p>
+                ))}
+              </details>
+            )}
             <h3 className="t-label" style={{ marginTop: 8 }}>
               Timeline
             </h3>
             <ul className="tline">
-              {dossier.timeline.map((e) => (
-                <li key={e.when} className={e.hot ? "hot" : undefined}>
+              {dossier.timeline.map((e, n) => (
+                <li key={n} className={e.hot ? "hot" : undefined}>
                   <p className="t-label">{e.when}</p>
                   <p className="t-caption">{e.text}</p>
                 </li>
@@ -92,8 +111,8 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
                 </tr>
               </thead>
               <tbody>
-                {dossier.history.map((h) => (
-                  <tr key={h.date + h.tail}>
+                {dossier.history.map((h, n) => (
+                  <tr key={n}>
                     <td data-l="Date">{h.date}</td>
                     <td data-l="Tail" className="t-data">
                       {h.tail}
@@ -117,11 +136,16 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
             {dossier.revision && (
               <div className="banner">
                 <Check size={18} aria-hidden />
-                Exact match in controlled source · {dossier.revision}
+                Controlled source · {dossier.revision}
               </div>
             )}
             {dossier.references.map((r) => (
-              <SourceRow key={r.id} evidence={{ id: r.id, kind: "manual" }} title={r.title} href={r.id.startsWith("TSM") && manualHref ? manualHref : undefined} />
+              <SourceRow
+                key={r.id}
+                evidence={{ id: r.id, kind: "manual" }}
+                title={r.title}
+                href={r.id.startsWith("TSM ") ? `/manuals?task=${encodeURIComponent(r.id.slice(4))}&from=${encodeURIComponent(dossier.id)}` : undefined}
+              />
             ))}
           </Card>
         ) : (
@@ -141,8 +165,8 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
                 </tr>
               </thead>
               <tbody>
-                {dossier.parts.map((p) => (
-                  <tr key={p.ref}>
+                {dossier.parts.map((p, n) => (
+                  <tr key={n}>
                     <td data-l="Item">{p.item}</td>
                     <td data-l="Part" className="t-data">
                       {p.ref}
@@ -160,7 +184,7 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
           <Empty text="No parts or tools flagged for this item" />
         ))}
 
-      <ReviewBar itemId={item.id} />
+      <ReviewBar itemId={item.id} briefId={briefId} engineerId={engineerId} />
     </>
   );
 }

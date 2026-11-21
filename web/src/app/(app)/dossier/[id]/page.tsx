@@ -29,10 +29,10 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
         <h1 className="t-display">{item.title}</h1>
         <p className="t-caption">
           <span className="t-data">{item.tail}</span>
-          {a && ` · ${a.type} · Stand ${a.stand} · ${a.departure ? `Departs ${a.departure}` : "Night stop"}`} · Dossier {dossier.version}, verified
+          {a && ` · ${a.type} · Stand ${a.stand} · ${a.departure ? `Departs ${a.departure}` : "Night stop"}`} · Dossier {dossier.version}
         </p>
       </header>
-      <DossierView dossier={dossier} item={item} />
+      <DossierView dossier={dossier} item={item} briefId={brief.briefId} engineerId={brief.engineerId} />
     </>
   );
 }
