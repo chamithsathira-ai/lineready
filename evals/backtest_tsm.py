@@ -9,6 +9,7 @@ defect description, and check whether the cited task is in the top-k.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from collections import Counter
@@ -20,15 +21,18 @@ CITED = re.compile(r"TSM\s*(?:TASK\s*)?[:\-]?\s*(\d{2}-\d{2}-\d{2}-\d{3}-[0-9A-Z
 ISSUED_BY = re.compile(r"\s*ISSUED BY.*$", re.I)
 
 
-def retrieve(desc: str, ata: str | None, before=None, exclude_wo=None, k: int = 3) -> tuple[list[str], str]:
-    """Same fused retriever the Manuals agent uses. Only history before the case is visible."""
+def retrieve(desc: str, ata: str | None, before=None, exclude_wo=None, k: int = 3, reg: str | None = None
+             ) -> tuple[list[str], str]:
+    """Same fused retriever the Manuals agent uses. Only history before the case is visible.
+    With USE_EFFECTIVITY (default on) tasks that exclude the aircraft's CEC are removed."""
     msg = ISSUED_BY.sub("", desc.split(" - ")[0]).strip()
-    hits = search.tsm_candidates(msg, msg, ata, before=before, exclude_wo=exclude_wo, k=k)
+    ac = search.aircraft(reg) if reg and os.getenv("USE_EFFECTIVITY", "1") == "1" else None
+    hits = search.tsm_candidates(msg, msg, ata, before=before, exclude_wo=exclude_wo, k=k, cec=ac["cec"] if ac else None)
     return [h["task_id"] for h in hits], (hits[0]["match"] if hits else "none")
 
 
 def main(n: int = 400) -> dict:
-    rows = query("""SELECT wo_number, ata, date_opened, description, actions FROM work_order
+    rows = query("""SELECT wo_number, reg, ata, date_opened, description, actions FROM work_order
                     WHERE state = 'Closed' AND wo_type IN ('PIREP','MAREP') AND actions ~ 'TSM *(TASK *)?[:\\-]? *[0-9]{2}-[0-9]{2}-'
                     ORDER BY md5(wo_number) LIMIT %s""", (n,))
     stats = Counter()
@@ -39,7 +43,8 @@ def main(n: int = 400) -> dict:
         if not cited:
             continue
         stats["cases"] += 1
-        got, path = retrieve(r["description"] or "", r["ata"], before=r["date_opened"], exclude_wo=r["wo_number"])
+        got, path = retrieve(r["description"] or "", r["ata"], before=r["date_opened"], exclude_wo=r["wo_number"],
+                             reg=r["reg"])
         by_path[path] += 1
         got16 = [g[:16] for g in got]
         if got16:

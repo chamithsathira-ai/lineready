@@ -2,8 +2,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** @type {import('next').NextConfig} */
-const API = process.env.LINEREADY_API_URL || "http://localhost:8000";
-
 const nextConfig = {
   reactStrictMode: true,
   // This app lives in web/; pin the root so a lockfile one level up is not mistaken for the workspace.
@@ -12,10 +10,9 @@ const nextConfig = {
   async redirects() {
     return [{ source: "/brief", destination: "/tonight", permanent: false }];
   },
-  // Browser calls go to /backend/* and are proxied to the FastAPI service: no CORS, one origin.
-  async rewrites() {
-    return [{ source: "/backend/:path*", destination: `${API}/api/:path*` }];
-  },
+  // Browser calls to /backend/* are proxied at runtime by src/app/backend/[...path]/route.ts.
+  // Standalone output: a small self-contained server for the container image.
+  output: "standalone",
 };
 
 export default nextConfig;

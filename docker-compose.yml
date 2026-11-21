@@ -2,8 +2,7 @@ name: lineready
 
 services:
   db:
-    image: pgvector/pgvector:pg16
-    restart: unless-stopped
+    image: pgvector/pgvector:pg16   # server: deploy/postgres/Dockerfile (Alpine, smaller)
     environment:
       POSTGRES_USER: lineready
       POSTGRES_PASSWORD: lineready
@@ -12,14 +11,16 @@ services:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    command: ["postgres", "-c", "max_wal_size=256MB", "-c", "min_wal_size=64MB"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lineready"]
       interval: 3s
       retries: 20
 
   app:
-    build: .
-    restart: unless-stopped
+    build:
+      context: .
+      target: build          # laptop/dev image: parsers + embedding model; the server uses the runtime target
     env_file:
       - path: .env
         required: false
@@ -37,17 +38,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Local development: code mounted from disk, auto-reload. Root only because ./var on the host
+    # was created by root; the production image runs as uid 10001.
+    user: root
     command: uvicorn lineready.interfaces.api:app --host 0.0.0.0 --port 8000 --reload
 
-  # Tablet UI. Talks to the API over the compose network; only this port is public.
   web:
-    build:
-      context: ./web
-      args:
-        LINEREADY_API_URL: http://app:8000
-    restart: unless-stopped
+    build: ./web
+    environment:
+      LINEREADY_API_URL: http://app:8000
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - app
 

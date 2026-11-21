@@ -19,9 +19,38 @@ app = FastAPI(title="LineReady", version="0.1.0")
 WEB = Path(__file__).parent / "web"
 
 
+@app.on_event("startup")
+def ensure_schema() -> None:
+    """Create any missing tables (idempotent). The runtime image cannot run the CLI, so the API does it."""
+    from lineready.infrastructure.persistence.db import init_schema
+    try:
+        init_schema()
+    except Exception as e:  # noqa: BLE001 - the DB may still be starting; readiness probe will hold traffic
+        import logging
+        logging.getLogger("lineready").warning("schema init skipped: %s", e)
+
+
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(WEB / "index.html")
+
+
+@app.get("/api/healthz", include_in_schema=False)
+def healthz():
+    """Liveness: the process answers. No database work."""
+    return {"ok": True}
+
+
+@app.get("/api/readyz", include_in_schema=False)
+def readyz():
+    """Readiness: the database answers and the TSM is loaded."""
+    try:
+        row = query_one("SELECT revision FROM manual_doc WHERE doc = 'TSM'")
+    except Exception as e:  # noqa: BLE001 - any DB failure means not ready
+        raise HTTPException(503, f"database not ready: {type(e).__name__}")
+    if not row:
+        raise HTTPException(503, "TSM not ingested yet")
+    return {"ok": True, "tsm": row["revision"]}
 
 
 @app.get("/api/health")
@@ -60,7 +89,8 @@ NOISE = re.compile(r"\b(JOB SET-UP INFORMATION AMENDED|EFFECTIVITY UPDATED|ILLUS
 def task_steps(body: str) -> list[str]:
     """Readable steps from the flat TSM text: procedure part only, split at sentence ends, de-duplicated."""
     text = NOISE.sub("", body or "")
-    start = min([i for i in (text.find("Fault Confirmation"), text.find("Fault Isolation")) if i >= 0] or [0])
+    start = min([i for i in (text.find("Fault Confirmation"), text.find("Fault Isolation"), text.find("Procedure"))
+                 if i >= 0] or [0])
     seen, steps = set(), []
     for sent in re.split(r"(?<=[.:])\s+(?=[A-Z(])", text[start:]):
         sent = sent.strip()
@@ -73,12 +103,32 @@ def task_steps(body: str) -> list[str]:
 
 
 @app.get("/api/task/{task_id}")
-def manual_task(task_id: str):
+def manual_task(task_id: str, reg: str | None = None):
+    """TSM or AMM task (full id or 16-char reference). With ?reg=, effectivity is checked for that aircraft."""
+    from lineready.domain.rules.effectivity import applies
+    ac = search.aircraft(reg.upper()) if reg else None
     t = search.task(task_id)
-    if not t:
-        raise HTTPException(404, "task not found in controlled TSM")
+    if t:
+        t["doc"] = "TSM"
+    else:
+        t = search.amm_task(task_id, ac["cec"] if ac else None)
+        if not t:
+            raise HTTPException(404, "task not found in the controlled TSM or AMM")
+        doc = query_one("SELECT revision FROM manual_doc WHERE doc = 'AMM'")
+        t.update(doc="AMM", revision=doc["revision"] if doc else "", causes=[], refs=[])
+        for part in t.get("parts") or []:
+            items = search.ipc_parts(part["csn"])
+            part["pns"] = [i["pn"] + (" (alt)" if i["alternative"] else "") for i in items[:3]]
+            part["in_stock"] = any(
+                (l["cond"] or "") != "US" and (l["qty"] or 0) > 0 and l["store"] in ("SHJLINE", "SHJMAIN")
+                for i in items for l in search.stock_for(i["pn"]))
+        for tool in t.get("tools") or []:
+            tool["in_store"] = bool(search.tool_for(tool["pn"])) if tool.get("pn") else None
     t.pop("tsv", None)
     t["steps"] = task_steps(t["body"])
+    if ac:
+        t["applies"] = applies(ac["cec"], t.get("effrg"))
+        t["aircraft"] = ac
     return t
 
 
@@ -178,3 +228,55 @@ class LogbookIn(BaseModel):
 def logbook_check(l: LogbookIn):
     from lineready.application.agents.logbook import check
     return check(l.entry, l.engineer_id, l.wo_number, l.deep)
+
+
+# ---------------------------------------------------------------- Aircraft packs, handover
+
+def _at(at: str | None):
+    from datetime import datetime as _dt
+    try:
+        return _dt.fromisoformat(at) if at else None
+    except ValueError:
+        raise HTTPException(422, "at must be ISO time, e.g. 2026-11-21T01:00:00")
+
+
+@app.get("/api/packs/{engineer_id}")
+def packs_board(engineer_id: str, at: str | None = None):
+    """Pack status for an engineer's aircraft. ?at= simulates the station clock (demo)."""
+    from lineready.application.pack import board
+    return board(engineer_id, _at(at))
+
+
+@app.post("/api/packs/refresh")
+def packs_refresh(at: str | None = None):
+    """Called by the scheduler (CronJob): build packs for aircraft landing within 90 min or with new faults."""
+    from lineready.application.pack import refresh_due
+    return {"built": refresh_due(_at(at))}
+
+
+@app.get("/api/pack/{reg}")
+def pack_get(reg: str, rebuild: bool = False, at: str | None = None):
+    from lineready.application.pack import build_pack, latest
+    p = None if rebuild else latest(reg.upper())
+    if p:
+        return p
+    try:
+        return build_pack(reg.upper(), _at(at), trigger="on request")
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/api/handover/{engineer_id}/draft")
+def handover_draft(engineer_id: str):
+    from lineready.application.handover import draft
+    return draft(engineer_id)
+
+
+class HandoverIn(BaseModel):
+    text: str = Field(..., min_length=10, max_length=4000)
+
+
+@app.post("/api/handover/{engineer_id}")
+def handover_save(engineer_id: str, h: HandoverIn):
+    from lineready.application.handover import save
+    return save(engineer_id, h.text)

@@ -13,3 +13,4 @@ web/.env*.local
 .DS_Store
 node_modules/
 .next/
+kb/

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
-import { getDossiers, getShiftBrief } from "@/lib/api";
+import { ChevronLeft, PackageCheck } from "lucide-react";
+import { getDossiers, getEngineerId, getShiftBrief, LIVE } from "@/lib/api";
+import { getPackBoard } from "@/lib/packs";
 import { timeLeft } from "@/lib/format";
-import { Card, CardHead, StatusBadge } from "@/components/ui";
+import { Card, CardHead, LinkButton, StatusBadge } from "@/components/ui";
 import { ItemRow } from "@/components/tonight/ItemRow";
 import { ReadinessGapsCard } from "@/components/tonight/ReadinessGapsCard";
 
@@ -19,6 +20,7 @@ export default async function AircraftDetailPage({ params }: { params: Promise<{
   const history = dossiers.flatMap((d) => d.history).filter((h) => h.tail === a.tail);
   const parts = dossiers.filter((d) => items.some((i) => i.dossierId === d.id)).flatMap((d) => d.parts);
   const left = timeLeft(brief, a);
+  const pack = LIVE ? (await getPackBoard(await getEngineerId())).find((p) => p.reg === a.tail) : undefined;
 
   return (
     <>
@@ -34,6 +36,13 @@ export default async function AircraftDetailPage({ params }: { params: Promise<{
         <p className="muted">
           {a.type} · Stand {a.stand} · {a.departure ? `Departs ${a.departure} · in ${left}` : "Night stop, on ground all night"}
         </p>
+        {pack?.state === "ready" && (
+          <div className="row wrap">
+            <LinkButton href={`/pack/${a.tail}`} icon={<PackageCheck size={18} aria-hidden />}>
+              Open aircraft pack
+            </LinkButton>
+          </div>
+        )}
       </header>
       <div className="grid">
         <div className="col">

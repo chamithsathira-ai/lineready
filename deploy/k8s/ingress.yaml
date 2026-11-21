@@ -1,0 +1,20 @@
+# Only the UI is published. Replace the host and TLS secret with yours (cert-manager or a corporate cert).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lineready
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"   # brief builds and Ask can take ~30-60 s
+    # cert-manager.io/cluster-issuer: corporate-ca
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [lineready.example.internal]
+      secretName: lineready-tls
+  rules:
+    - host: lineready.example.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: lineready-web, port: { number: 80 } } }

@@ -137,6 +137,9 @@ export interface ManualTask {
   fromDossier?: string;
   causes?: string[];
   refs?: { man: string; ref: string; title: string }[];
+  doc?: "TSM" | "AMM";
+  tools?: { pn: string | null; name: string; qty?: string; in_store?: boolean | null }[];
+  parts?: { fig_item: string; name: string; csn: string; pns?: string[]; in_stock?: boolean }[];
 }
 
 export interface ReadinessRow {

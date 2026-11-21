@@ -1,17 +1,22 @@
-# LineReady tablet UI. LINEREADY_API_URL is needed at build time (the /backend/* proxy is fixed then) and at run time.
-FROM node:20-alpine AS build
-WORKDIR /web
-ARG LINEREADY_API_URL=""
-ENV LINEREADY_API_URL=$LINEREADY_API_URL NEXT_TELEMETRY_DISABLED=1
+# LineReady tablet UI: Next.js standalone server
+FROM node:20-alpine AS deps
+WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
-COPY . .
-RUN npm run build && npm prune --omit=dev
 
-FROM node:20-alpine
-WORKDIR /web
-ARG LINEREADY_API_URL=""
-ENV NODE_ENV=production LINEREADY_API_URL=$LINEREADY_API_URL NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /web ./
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:20-alpine AS run
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
+COPY --from=build --chown=app:app /app/.next/standalone ./
+COPY --from=build --chown=app:app /app/.next/static ./.next/static
+USER app
 EXPOSE 3000
-CMD ["npx", "next", "start", "-p", "3000"]
+CMD ["node", "server.js"]

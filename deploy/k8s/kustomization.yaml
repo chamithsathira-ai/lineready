@@ -1,0 +1,27 @@
+# kubectl apply -k deploy/k8s     (after creating the secret, see deploy/README.md)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lineready
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - api.yaml
+  - web.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - packs-cronjob.yaml
+# Data: the knowledge base is built on a laptop (scripts/build_kb.sh) and streamed in (scripts/restore_kb.sh).
+images:
+  - name: lineready-api
+    newName: REGISTRY/lineready-api      # e.g. harbor.example.com/lineready/lineready-api
+    newTag: "0.2.0"
+  - name: lineready-web
+    newName: REGISTRY/lineready-web
+    newTag: "0.2.0"
+  - name: lineready-db
+    newName: REGISTRY/lineready-db
+    newTag: "0.2.0"
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: lineready

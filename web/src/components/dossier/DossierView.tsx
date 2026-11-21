@@ -33,7 +33,9 @@ export function DossierView({
   const refHref = (ref: string) => {
     const slug = manualSlug(ref);
     const match = manualIds.find((id) => id === slug || id.startsWith(slug + "-"));
-    return match ? `/manuals/${match}${from}` : undefined;
+    if (match) return `/manuals/${match}${from}`;
+    // Live backend: any TSM or AMM task can be opened from the controlled manuals.
+    return briefId && /^(TSM|AMM) /.test(ref) ? `/manuals/${slug}${from}` : undefined;
   };
   const askHref = `/ask?q=${encodeURIComponent(`${item.tail}: ${item.title} What should I check first?`)}`;
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpen, ClipboardList, FileCheck, GraduationCap, MessageCircle, Package, Plane, User } from "lucide-react";
+import { ArrowRightLeft, BookOpen, ClipboardList, FileCheck, GraduationCap, MessageCircle, Package, Plane, User } from "lucide-react";
 import { getJSON } from "@/lib/client";
 import { useAppState, type Role } from "./AppState";
 import { ThemeToggle } from "./ThemeToggle";
@@ -17,11 +17,12 @@ const MANUALS: NavItem = { href: "/manuals", label: "Manuals", icon: BookOpen };
 const READINESS: NavItem = { href: "/readiness", label: "Readiness", icon: Package };
 const COACH: NavItem = { href: "/coach", label: "Coach", icon: GraduationCap };
 const LOGBOOK: NavItem = { href: "/logbook", label: "Logbook", icon: FileCheck };
+const HANDOVER: NavItem = { href: "/handover", label: "Handover", icon: ArrowRightLeft };
 
 /** Each role sees only the destinations it needs. */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
-  engineer: [TONIGHT, AIRCRAFT, ASK, MANUALS, LOGBOOK],
-  lead: [TONIGHT, READINESS, AIRCRAFT, ASK],
+  engineer: [TONIGHT, AIRCRAFT, ASK, MANUALS, LOGBOOK, HANDOVER],
+  lead: [TONIGHT, READINESS, AIRCRAFT, ASK, HANDOVER],
   trainee: [COACH, MANUALS, ASK],
 };
 
@@ -31,7 +32,7 @@ function NavLinks() {
   const path = usePathname();
   const { role } = useAppState();
   const isActive = (href: string) =>
-    path === href || path.startsWith(href + "/") || (href === "/tonight" && path.startsWith("/dossier"));
+    path === href || path.startsWith(href + "/") || (href === "/tonight" && path.startsWith("/dossier")) || (href === "/aircraft" && path.startsWith("/pack"));
   return (
     <>
       {NAV_BY_ROLE[role].map(({ href, label, icon: Icon }) => (

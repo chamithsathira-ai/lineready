@@ -173,3 +173,38 @@ CREATE TABLE IF NOT EXISTS logbook_check (
   id bigserial PRIMARY KEY, ts timestamp DEFAULT now(), engineer_id text, wo_number text,
   entry_text text, result jsonb
 );
+
+-- ---------- Fleet allocation (from the TSM front matter, controlled source) ----------
+CREATE TABLE IF NOT EXISTS aircraft (
+  reg text PRIMARY KEY, msn text, cec int, model text, engine text, line_nbr text, operator text
+);
+
+-- ---------- AMM tasks and IPC parts (controlled sources) ----------
+CREATE TABLE IF NOT EXISTS amm_task (
+  task_id text PRIMARY KEY, title text, revdate date, effrg text,
+  tools jsonb, consumables jsonb, parts jsonb, body text,
+  tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', coalesce(title,''))) STORED
+);
+CREATE INDEX IF NOT EXISTS amm_tsv ON amm_task USING gin (tsv);
+CREATE TABLE IF NOT EXISTS ipc_item (
+  id bigserial PRIMARY KEY, csn text, key text, pn text, mfr text, upa text, alternative boolean,
+  effrg text, figure_title text
+);
+CREATE INDEX IF NOT EXISTS ipc_csn ON ipc_item (csn);
+CREATE INDEX IF NOT EXISTS ipc_pn ON ipc_item (upper(pn));
+
+-- ---------- Dense embeddings (BGE-small 384d) for meaning-based search ----------
+-- halfvec (16-bit) halves storage. No ANN index: ~82k rows filtered by ATA chapter scan exactly in milliseconds,
+-- and exact search never misses filtered results (an HNSW index would add ~60 MB and can).
+CREATE TABLE IF NOT EXISTS wo_embedding (wo_number text PRIMARY KEY, chap text, emb halfvec(384));
+CREATE INDEX IF NOT EXISTS wo_emb_chap ON wo_embedding (chap);
+CREATE TABLE IF NOT EXISTS task_embedding (task_id text PRIMARY KEY, doc text, emb halfvec(384));
+-- Precomputed query embeddings (AVIATAR messages, open defects, PHA titles): the server needs no model.
+CREATE TABLE IF NOT EXISTS query_embedding (key text PRIMARY KEY, emb halfvec(384));
+
+-- ---------- Aircraft packs (built before landing) ----------
+CREATE TABLE IF NOT EXISTS aircraft_pack (
+  id bigserial PRIMARY KEY, reg text, engineer_id text, built_at timestamp, arrival timestamp,
+  data_until timestamp, payload jsonb
+);
+CREATE INDEX IF NOT EXISTS pack_reg ON aircraft_pack (reg, id DESC);

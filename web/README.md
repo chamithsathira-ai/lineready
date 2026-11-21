@@ -55,7 +55,7 @@ Open http://localhost:3000 (redirects to `/tonight`). Day / Night mode and the r
 ### Connect to the backend
 
 The FastAPI backend is in the repo root (see `../README.md`). Point the UI at it in `web/.env.local`
-(copy `web/.env.local.example`), **before** `npm run build`, because the `/backend/*` proxy is fixed at build time:
+(copy `web/.env.local.example`) or the container environment; it is read at request time:
 
 ```
 LINEREADY_API_URL=http://localhost:8000
@@ -65,15 +65,17 @@ With it set, every screen reads live data; without it the UI falls back to the m
 
 - **Server components** fetch the backend directly; `src/lib/backend.ts` is the only file that knows the
   backend's shapes and maps them onto the UI types in `src/lib/types.ts`.
-- **Browser calls** (review, Ask, Coach, Logbook check, engineer list) go to `/backend/*`, which
-  `next.config.mjs` proxies to `${LINEREADY_API_URL}/api/*`: one origin, no CORS.
+- **Browser calls** (review, Ask, Coach, Logbook check, handover, engineer list) go to `/backend/*`, which
+  `src/app/backend/[...path]/route.ts` forwards to `${LINEREADY_API_URL}/api/*`: one origin, no CORS.
 - **Engineer**: chosen under **Me** (Engineer A/B/C), stored in the `lr-engineer` cookie; server pages load that engineer's brief.
 
 | Screen | Backend |
 |---|---|
 | Tonight, Aircraft, Readiness | `GET /api/brief/{engineer}` (adapted: items, aircraft timeline, readiness gaps) |
 | Dossier | same brief; review bar → `POST /api/feedback` (Edit / Not relevant need a reason) → audit trail |
-| Manuals | list = TSM tasks referenced tonight; `/manuals/tsm-…` → `GET /api/task/{id}` (causes, referenced AMM tasks, steps) |
+| Manuals | list = TSM tasks referenced tonight; `/manuals/tsm-…` and `/manuals/amm-…` → `GET /api/task/{id}` (causes, AMM links, tools, IPC parts, steps) |
+| Aircraft packs | `GET /api/packs/{engineer}`, `GET /api/pack/{reg}` (pack page, linked from the aircraft page) |
+| Handover | end-of-shift handover draft and save (engineer and shift lead) |
 | Source sheet | `GET /api/wo/{n}` for work orders, otherwise the evidence record held in the brief |
 | Search | tonight's brief: aircraft, items, evidence ids, referenced TSM tasks, parts |
 | Ask | `POST /api/ask` (tool-using agent; citations open in the source sheet) |

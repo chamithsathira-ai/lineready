@@ -52,8 +52,8 @@ export async function getManualTask(id: string, fromDossier?: string): Promise<M
     const t = mockManualTasks.find((x) => x.id === id);
     return t && fromDossier ? { ...t, fromDossier } : t;
   }
-  const ref = manualRef(id); // "TSM 32-42-00-810-923-A"
-  if (!ref.startsWith("TSM ")) return undefined; // only the TSM is loaded in the backend
+  const ref = manualRef(id); // "TSM 32-42-00-810-923-A" or "AMM 33-20-41-000-801-A"
+  if (!/^(TSM|AMM) /.test(ref)) return undefined; // the backend holds the controlled TSM and AMM
   return fetchManualTask(ref.slice(4), fromDossier);
 }
 
