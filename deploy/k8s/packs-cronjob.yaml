@@ -1,0 +1,34 @@
+# Aircraft packs before landing: every 5 minutes, build packs for aircraft landing within 90 minutes
+# (or rebuild when a newer fault arrived). Deterministic, no AI tokens.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lineready-packs
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels: { app.kubernetes.io/name: lineready-packs }
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: refresh
+              image: curlimages/curl:8.10.1
+              args: ["-fsS", "-X", "POST", "http://lineready-api:8000/api/packs/refresh"]
+              resources:
+                requests: { cpu: 10m, memory: 16Mi }
+                limits: { memory: 32Mi }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }

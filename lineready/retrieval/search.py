@@ -9,6 +9,11 @@ import re
 from collections import defaultdict
 from datetime import date, timedelta
 
+import hashlib
+import os
+from functools import lru_cache
+
+from lineready.domain.rules.effectivity import applies
 from lineready.infrastructure.persistence.db import query, query_one
 
 STOP = {"THE", "AND", "FOR", "WITH", "WAS", "FOUND", "CARRIED", "OUT", "AS", "PER", "IAW", "REF", "AMM", "TASK",
@@ -69,6 +74,51 @@ def rrf(*rankings: list[str], k: int = 60) -> list[str]:
     return sorted(score, key=score.get, reverse=True)
 
 
+# ---------- dense (meaning-based) ranking ----------
+DENSE_MAX_DIST = 0.25   # cosine distance cut-off; tuned on the backtest
+
+
+@lru_cache(maxsize=1)
+def dense_ready() -> bool:
+    try:
+        return bool(query_one("SELECT 1 x FROM wo_embedding LIMIT 1"))
+    except Exception:  # noqa: BLE001 - table missing on an old database
+        return False
+
+
+def qkey(text: str) -> tuple[str, str]:
+    """Canonical query text (as embedded) and its lookup key."""
+    t = text[:256]
+    return t, hashlib.md5(t.encode()).hexdigest()
+
+
+@lru_cache(maxsize=1)
+def _model_available() -> bool:
+    if os.getenv("LINEREADY_NO_MODEL") == "1":   # force server behaviour on a build machine
+        return False
+    try:
+        import fastembed  # noqa: F401 - present in the build image only
+        return True
+    except ImportError:
+        return False
+
+
+@lru_cache(maxsize=512)
+def qvec(text: str) -> str | None:
+    """Query embedding as a pgvector literal. Precomputed table first (server: no model on disk),
+    then the local model if installed (laptop build image), otherwise None -> keyword + fleet search only."""
+    if not text.strip() or os.getenv("USE_DENSE", "1") != "1" or not dense_ready():
+        return None
+    t, key = qkey(text)
+    row = query_one("SELECT emb::text e FROM query_embedding WHERE key = %s", (key,))
+    if row:
+        return row["e"]
+    if not _model_available():
+        return None
+    from lineready.infrastructure.embed import embed, vec_literal
+    return vec_literal(embed([t])[0])
+
+
 # ---------- manuals ----------
 
 def tsm_for_message(message: str, ata: str | None) -> list[dict]:
@@ -106,7 +156,13 @@ def tsm_for_text(text: str, ata2: str | None, limit: int = 3) -> list[dict]:
     tri = query("""SELECT task_id FROM manual_task
                    WHERE (%s = '' OR task_id LIKE %s || '-%%') AND title %% %s
                    ORDER BY similarity(title, %s) DESC LIMIT 20""", (chap, chap, text, text))
-    ids = rrf([r["task_id"] for r in lex], [r["task_id"] for r in tri])[:10]
+    dense = []
+    v = qvec(text)
+    if v:
+        dense = query("""SELECT task_id FROM task_embedding WHERE doc = 'TSM' AND (%s = '' OR task_id LIKE %s || '-%%')
+                         AND (emb <=> %s::halfvec) < %s ORDER BY emb <=> %s::halfvec LIMIT 20""",
+                      (chap, chap, v, DENSE_MAX_DIST, v))
+    ids = rrf([r["task_id"] for r in lex], [r["task_id"] for r in tri], [r["task_id"] for r in dense])[:10]
     if not ids:
         return []
     # precision guard: a text match must share at least 2 distinctive words (canonical form) with the task title
@@ -145,8 +201,16 @@ def tsm_from_cases(text: str, ata: str | None, before: date | None = None, exclu
     tri = query(f"SELECT wo_number, tasks, similarity(description, %(t)s) sim {base} AND description %% %(t)s "
                 f"ORDER BY similarity(description, %(t)s) DESC LIMIT 40", p)
     lex = [r for r in lex if r["sim"] >= MIN_CASE_SIM]   # a case must actually resemble this defect
-    tasks_of = {r["wo_number"]: r["tasks"] for r in lex + tri}
-    ids = rrf([r["wo_number"] for r in lex], [r["wo_number"] for r in tri])[:k_cases]
+    dense = []
+    v = qvec(text)
+    if v:
+        dense = query(f"""SELECT c.wo_number, c.tasks FROM case_memory c JOIN wo_embedding e USING (wo_number)
+                          WHERE c.chap = %(chap)s AND c.wo_number <> coalesce(%(ex)s, '')
+                          AND (%(before)s::date IS NULL OR c.date_opened < %(before)s::date)
+                          AND (e.emb <=> %(v)s::halfvec) < %(maxd)s
+                          ORDER BY e.emb <=> %(v)s::halfvec LIMIT 40""", {**p, "v": v, "maxd": DENSE_MAX_DIST})
+    tasks_of = {r["wo_number"]: r["tasks"] for r in lex + tri + dense}
+    ids = rrf([r["wo_number"] for r in lex], [r["wo_number"] for r in tri], [r["wo_number"] for r in dense])[:k_cases]
     votes: dict[str, float] = defaultdict(float)
     support: dict[str, list[str]] = defaultdict(list)
     for rank, wo in enumerate(ids):
@@ -170,7 +234,7 @@ def tsm_from_cases(text: str, ata: str | None, before: date | None = None, exclu
 
 
 def tsm_candidates(message: str | None, text: str, ata: str | None, before: date | None = None,
-                   exclude_wo: str | None = None, k: int = 3) -> list[dict]:
+                   exclude_wo: str | None = None, k: int = 3, cec: int | None = None) -> list[dict]:
     """Fused manual retrieval: fault index (exact keys) + fleet case memory + guarded text search, merged by RRF.
     Each result keeps how it was found, so the UI can show the right confidence."""
     idx = tsm_for_message(message, ata) if message else []
@@ -184,6 +248,10 @@ def tsm_candidates(message: str | None, text: str, ata: str | None, before: date
     for h in cases:                        # keep case support even when the index also matched
         info[h["task_id"]]["support"] = h["support"]
     order = rrf([h["task_id"] for h in idx], [h["task_id"] for h in cases], [h["task_id"] for h in txt])
+    if cec is not None and order:   # drop tasks whose effectivity excludes this aircraft (TSM CEC ranges)
+        eff = {r["task_id"]: r["effrg"] for r in query("SELECT task_id, effrg FROM manual_task WHERE task_id = ANY(%s)",
+                                                       (order,))}
+        order = [t for t in order if applies(cec, eff.get(t)) is not False]
     return [info[t] for t in order[:k]]
 
 
@@ -219,7 +287,17 @@ def similar_defects(text: str, ata: str | None, exclude_reg: str | None = None, 
                    AND reg <> coalesce(%s, '') AND description %% %s
                    ORDER BY similarity(description, %s) DESC LIMIT 30""",
                 (chap, exclude_reg, text[:300], text[:300]))
-    ids = rrf([r["wo_number"] for r in lex], [r["wo_number"] for r in tri])[:limit]
+    dense = []
+    v = qvec(text)
+    if v:
+        dense = query("""SELECT wo_number FROM (
+                             SELECT wo_number, emb <=> %s::halfvec d FROM wo_embedding WHERE (%s = '' OR chap = %s)
+                             ORDER BY d LIMIT 60) x WHERE d < %s""", (v, chap, chap, DENSE_MAX_DIST))
+        if exclude_reg and dense:   # drop the aircraft's own reports (fleet view); cheap on <= 60 rows
+            own = {r["wo_number"] for r in query("SELECT wo_number FROM work_order WHERE wo_number = ANY(%s) AND reg = %s",
+                                                 ([r["wo_number"] for r in dense], exclude_reg))}
+            dense = [r for r in dense if r["wo_number"] not in own][:30]
+    ids = rrf([r["wo_number"] for r in lex], [r["wo_number"] for r in tri], [r["wo_number"] for r in dense])[:limit]
     if not ids:
         return []
     rows = {r["wo_number"]: r for r in query(
@@ -265,3 +343,29 @@ def stock_for(pn: str) -> list[dict]:
 def tool_for(pn: str) -> list[dict]:
     return query("""SELECT tool_id, pn, description, store, location, expires FROM tool WHERE upper(pn) = %s
                     LIMIT 5""", (pn.upper(),))
+
+
+# ---------- fleet allocation, AMM, IPC ----------
+
+@lru_cache(maxsize=256)
+def aircraft(reg: str) -> dict | None:
+    """Registration -> MSN, CEC, model (from the manual's own fleet allocation table)."""
+    return query_one("SELECT reg, msn, cec, model, engine FROM aircraft WHERE reg = %s", (reg,))
+
+
+def amm_task(ref: str, cec: int | None = None) -> dict | None:
+    """AMM task by full id or 16-char reference; picks the variant whose effectivity covers the aircraft."""
+    rows = query("SELECT * FROM amm_task WHERE task_id = %s OR left(task_id, 16) = %s ORDER BY task_id",
+                 (ref, ref[:16]))
+    if not rows:
+        return None
+    if cec is not None:
+        fit = [r for r in rows if applies(cec, r["effrg"]) is not False]
+        rows = fit or rows
+    return rows[0]
+
+
+def ipc_parts(csn: str) -> list[dict]:
+    """IPC items for a catalogue sequence number, including alternative parts (item numbers 030/031...)."""
+    return query("""SELECT csn, pn, mfr, upa, alternative, figure_title FROM ipc_item
+                    WHERE csn LIKE %s ORDER BY csn LIMIT 6""", (csn[:11] + "%",))

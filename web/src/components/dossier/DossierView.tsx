@@ -144,7 +144,7 @@ export function DossierView({ dossier, item, briefId, engineerId }: { dossier: D
                 key={r.id}
                 evidence={{ id: r.id, kind: "manual" }}
                 title={r.title}
-                href={r.id.startsWith("TSM ") ? `/manuals?task=${encodeURIComponent(r.id.slice(4))}&from=${encodeURIComponent(dossier.id)}` : undefined}
+                href={/^(TSM|AMM) /.test(r.id) ? `/manuals?task=${encodeURIComponent(r.id.slice(4))}&from=${encodeURIComponent(dossier.id)}` : undefined}
               />
             ))}
           </Card>

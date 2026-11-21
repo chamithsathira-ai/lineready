@@ -11,3 +11,4 @@ web/out/
 web/.env*.local
 *.tsbuildinfo
 .DS_Store
+kb/

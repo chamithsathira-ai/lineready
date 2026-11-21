@@ -50,7 +50,7 @@ export default async function ManualsPage({ searchParams }: { searchParams: Prom
       <header className="page-head">
         <h1 className="t-display">{task.title}</h1>
         <p className="t-caption">
-          <span className="t-data">{LIVE ? `TSM ${task.id}` : task.id.toUpperCase().replace(/^TSM-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)$/, "TSM $1-$2-$3-$4-$5")}</span> · Effectivity: {task.effectivity}
+          <span className="t-data">{LIVE ? `${task.doc ?? "TSM"} ${task.id}` : task.id.toUpperCase().replace(/^TSM-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)$/, "TSM $1-$2-$3-$4-$5")}</span> · Effectivity: {task.effectivity}
         </p>
       </header>
       <div className="col" style={{ maxWidth: 880 }}>
@@ -68,7 +68,51 @@ export default async function ManualsPage({ searchParams }: { searchParams: Prom
         {!!task.refs?.length && (
           <Card>
             <h2 className="t-heading">Referenced tasks</h2>
-            <ul>{task.refs.map((r, n) => <li key={n}><span className="t-data">{r.man} {r.ref}</span> · {r.title}</li>)}</ul>
+            <ul>
+              {task.refs.map((r, n) => (
+                <li key={n}>
+                  {r.man === "AMM" ? (
+                    <Link href={`/manuals?task=${encodeURIComponent(r.ref)}${from ? `&from=${encodeURIComponent(from)}` : ""}`} className="t-data">
+                      {r.man} {r.ref}
+                    </Link>
+                  ) : (
+                    <span className="t-data">{r.man} {r.ref}</span>
+                  )}{" "}
+                  · {r.title}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {!!task.tools?.length && (
+          <Card>
+            <h2 className="t-heading">Tools and equipment</h2>
+            <ul>
+              {task.tools.map((t, n) => (
+                <li key={n}>
+                  {t.pn && <span className="t-data">{t.pn} </span>}
+                  {t.name}
+                  {t.qty ? ` · qty ${t.qty}` : ""}
+                  {t.in_store === true && " · in SHJ tool store"}
+                  {t.in_store === false && " · not found in SHJ tool store"}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {!!task.parts?.length && (
+          <Card>
+            <h2 className="t-heading">Expendable parts (IPC)</h2>
+            <ul>
+              {task.parts.map((p, n) => (
+                <li key={n}>
+                  {p.name} · IPC {p.csn}
+                  {p.pns?.length ? ` · P/N ${p.pns.join(", ")}` : ""}
+                  {p.in_stock === true && " · in station stock"}
+                  {p.in_stock === false && " · not in station stock"}
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
         <ManualSteps key={task.id} steps={task.steps} />

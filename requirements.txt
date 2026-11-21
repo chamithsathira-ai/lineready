@@ -1,9 +1,6 @@
+# Runtime (server): API, agents, retrieval. Small on purpose: the server has 2 GB of disk.
 psycopg[binary]>=3.2,<4
-polars>=1.0,<2
-fastexcel>=0.11
 fastapi>=0.110
 uvicorn[standard]>=0.29
 anthropic>=0.70
 pydantic>=2.6,<3
-pyyaml>=6
-pytest>=8

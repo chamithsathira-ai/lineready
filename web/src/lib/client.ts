@@ -19,6 +19,6 @@ export async function getJSON<T>(path: string): Promise<T> {
 /** Where a backend evidence id opens: TSM tasks in the manual viewer, everything else on the Source screen. */
 export function sourceHref(ref?: string): string | undefined {
   if (!ref) return undefined;
-  if (ref.startsWith("tsm:")) return `/manuals?task=${encodeURIComponent(ref.slice(4))}`;
+  if (ref.startsWith("tsm:") || ref.startsWith("amm:")) return `/manuals?task=${encodeURIComponent(ref.slice(4))}`;
   return `/source?ref=${encodeURIComponent(ref)}`;
 }

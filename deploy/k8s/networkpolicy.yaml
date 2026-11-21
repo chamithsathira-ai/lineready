@@ -1,0 +1,25 @@
+# DB accepts only the API; the API accepts only the UI and the pack CronJob.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-from-api-only
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: lineready-db } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: lineready-api } }
+      ports: [{ port: 5432 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-from-web-only
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: lineready-api } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: lineready-web } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: lineready-packs } }
+      ports: [{ port: 8000 }]

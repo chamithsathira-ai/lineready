@@ -1,0 +1,6 @@
+# Build machine only (laptop): parsing the data pack, embeddings, tests.
+-r requirements.txt
+polars>=1.0,<2
+fastexcel>=0.11
+fastembed>=0.4,<1
+pytest>=8

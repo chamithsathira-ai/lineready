@@ -118,10 +118,29 @@ Coverage is deliberately below 100%: when no confident match exists the brief sa
 * A6-AQP MAREP 6204647: deferral limit from the action text passed on 20-Oct-2026 and the WO is still open.
 * A6-ARE MAREP 6337181: MEL 33-20-01-A Cat C, due 22-Nov-2026; the LED unit used on past fixes is in SHJMAIN.
 
+## Built since Round 1
+
+* **Effectivity by serial number:** the TSM's own fleet table (registration -> MSN -> CEC, 92 aircraft) filters out
+  tasks that do not apply to the aircraft, and dossiers state "applies to A6-AOJ (MSN 06665, CEC 335)".
+* **AMM and IPC parsed:** 11,594 AMM tasks (tools, consumables, expendable parts) and 332,547 IPC items. Readiness
+  follows TSM -> AMM -> IPC part numbers (with alternatives) -> station stock and tool store.
+* **Meaning-based search:** BGE-small embeddings (local, free) added to keyword + trigram + fleet memory with RRF.
+  Backtest recall@3 40.9% -> 45.0%. Built on the laptop; the server uses precomputed vectors and needs no model.
+* **Aircraft pack before landing:** built automatically 90 min before arrival (CronJob), rebuilt on new faults:
+  items, things to clear while on the ground, parts, tools, manual pages, last 7 days.
+* **End-of-shift handover:** drafted from the shift's reviews, logbook checks, open items and parts gaps; Claude
+  writes the "next shift first" lines with record citations; the engineer edits and saves.
+* **Voice questions:** browser speech recognition in Ask, plus read-aloud answers (on-premise speech is the
+  production option).
+
+## Small-server deployment
+
+Build the knowledge base on a laptop (`scripts/build_kb.sh`, one 185 MB file) and stream it into the server
+(`scripts/restore_kb.sh`). Server footprint ~1.75 GB including images. See `deploy/README.md`.
+
 ## Known limits / next steps
 
-* Effectivity: TSM effectivity ranges are shown, but a tail→MSN map is needed to filter them.
-* AMM/IPC SGML not yet parsed (TSM→AMM links come from the TSM itself).
-* Dense embeddings (BGE-M3 + pgvector) are the next retrieval step; current hybrid is lexical + trigram + RRF.
-* Voice input for Ask, aircraft pack before landing, handover draft (final round).
+* Login: put the Ingress behind corporate SSO.
 * REP-01/REP-02 thresholds must be confirmed against the company MOE/TPM.
+* Free-text Ask questions use keyword + fleet search on the server (no embedding model there).
+* Voice uses the browser's speech service; switch to on-premise speech for production.

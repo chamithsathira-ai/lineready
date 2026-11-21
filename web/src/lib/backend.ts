@@ -54,14 +54,14 @@ function shiftStart(asOf: string): Date {
 const minutesFrom = (start: Date, iso: string | null) => (iso ? Math.round((new Date(iso).getTime() - start.getTime()) / 60000) : 0);
 
 const KIND_OF: Record<string, EvidenceRef["kind"]> = {
-  wo: "wo", tsm: "manual", amm: "manual", pha: "pha", rule: "rule", stock: "stores", tool: "tool", ep: "aviatar", aviatar: "aviatar",
+  wo: "wo", tsm: "manual", amm: "manual", ipc: "manual", pha: "pha", rule: "rule", stock: "stores", tool: "tool", ep: "aviatar", aviatar: "aviatar",
 };
 
 export function evRef(id: string): EvidenceRef {
   const [p, ...rest] = id.split(":");
   const tail = rest.join(":");
   const label: Record<string, string> = {
-    wo: `WO ${tail}`, tsm: `TSM ${tail}`, pha: `PHA ${tail}`, rule: `Rule ${tail}`, stock: `Stores ${tail}`,
+    wo: `WO ${tail}`, tsm: `TSM ${tail}`, amm: `AMM ${tail}`, ipc: `IPC ${tail}`, pha: `PHA ${tail}`, rule: `Rule ${tail}`, stock: `Stores ${tail}`,
     tool: `Tool ${tail}`, ep: `AVIATAR episode ${rest[1] ?? ""}`.trim(), aviatar: `AVIATAR ${rest.slice(1).join(":")}`,
   };
   return { id: label[p] ?? id, ref: id, kind: KIND_OF[p] ?? "other" };
@@ -263,18 +263,22 @@ export async function fetchManualTask(taskId: string, fromDossier?: string): Pro
   const res = await fetch(`${API_URL}/api/task/${encodeURIComponent(taskId)}`, { cache: "no-store" });
   if (!res.ok) return undefined;
   const t = (await res.json()) as {
-    task_id: string; title: string; revision: string; revdate: string; effrg: string | null;
+    task_id: string; title: string; revision: string; revdate: string; effrg: string | null; doc: "TSM" | "AMM";
     causes: { name: string; fin: string | null }[]; refs: { man: string; ref: string; title: string }[]; steps: string[];
+    tools?: ManualTask["tools"]; parts?: ManualTask["parts"];
   };
   return {
     id: t.task_id,
     title: t.title,
-    revision: `Controlled source · TSM ${t.revision} · task revised ${t.revdate}`,
+    revision: `Controlled source · ${t.doc} ${t.revision} · task revised ${t.revdate}`,
     effectivity: !t.effrg || t.effrg === "001999" ? "All aircraft" : `${t.effrg} (confirm against the MSN)`,
     steps: t.steps,
     fromDossier,
     causes: t.causes.map((c) => (c.fin ? `${c.name} (${c.fin})` : c.name)),
     refs: t.refs,
+    doc: t.doc,
+    tools: t.tools,
+    parts: t.parts,
   };
 }
 
