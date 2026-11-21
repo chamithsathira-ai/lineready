@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import type { ShiftBrief } from "@/lib/types";
 import { Meter } from "@/components/ui";
 import { useAppState } from "./AppState";
+import { SearchField } from "./SearchField";
 
 /** Shift context, review progress, trust badge and search. Shared by Tonight and Readiness. */
 export function ShiftHeader({ brief, title }: { brief: ShiftBrief; title: string }) {
@@ -34,16 +35,7 @@ export function ShiftHeader({ brief, title }: { brief: ShiftBrief; title: string
           )}
         </div>
       )}
-      <SearchField placeholder="Search tail, WO, ATA, part number" />
+      <SearchField />
     </header>
-  );
-}
-
-export function SearchField({ placeholder }: { placeholder: string }) {
-  return (
-    <label className="search">
-      <Search size={18} aria-hidden />
-      <input type="search" placeholder={placeholder} aria-label={placeholder} />
-    </label>
   );
 }

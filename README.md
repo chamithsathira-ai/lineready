@@ -19,14 +19,15 @@ lineready/
 │       │   └── (app)/       # screens behind the navigation
 │       │       ├── tonight/      Shift plan: Next up, ground timeline, items by aircraft
 │       │       ├── dossier/[id]/ Defect dossier with Accept / Edit / Not relevant review
-│       │       ├── manuals/      Manual task viewer at controlled revision
+│       │       ├── manuals/      Task list; manuals/[id] is the task viewer at controlled revision
 │       │       ├── ask/          Cited answers
-│       │       ├── readiness/    Shift-lead readiness board
-│       │       ├── coach/        Trainee practice and competency
-│       │       └── aircraft/     Tonight's aircraft
+│       │       ├── readiness/    Shift-lead readiness board (acknowledge, reassign, resolve gaps)
+│       │       ├── coach/        Trainee practice: write a plan, then compare
+│       │       ├── aircraft/     Tonight's aircraft; aircraft/[tail] has items, history, parts
+│       │       └── api/          search and source-preview route handlers (mock data)
 │       ├── components/
 │       │   ├── ui/          # StatusBadge, Button, Card, SourceRow, Meter
-│       │   ├── shell/       # NavRail (rail + phone bottom bar), ShiftHeader, ThemeToggle, AppState (role, reviews)
+│       │   ├── shell/       # NavRail, ShiftHeader, SearchField, SourceSheet, ThemeToggle, AppState (role, reviews, gaps)
 │       │   ├── tonight/     # NextUpCard, GroundTimeline, AircraftGroups, side cards
 │       │   └── dossier/     # DossierView, ReviewBar
 │       └── lib/

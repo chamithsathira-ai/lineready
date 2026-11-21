@@ -1,4 +1,5 @@
-import { getReadiness, getShiftBrief } from "@/lib/api";
+import Link from "next/link";
+import { getEngineers, getReadiness, getShiftBrief } from "@/lib/api";
 import type { Status } from "@/lib/types";
 import { ShiftHeader } from "@/components/shell/ShiftHeader";
 import { Card, CardHead, StatusBadge } from "@/components/ui";
@@ -9,11 +10,10 @@ export const dynamic = "force-dynamic";
 const CELL: Partial<Record<Status, string>> = { ok: "Ready", info: "Check", act: "Gap" };
 
 export default async function ReadinessPage() {
-  const [brief, rows] = await Promise.all([getShiftBrief(), getReadiness()]);
-  const open = brief.readinessGaps.filter((g) => g.state !== "resolved").length;
+  const [brief, rows, engineers] = await Promise.all([getShiftBrief(), getReadiness(), getEngineers()]);
   return (
     <>
-      <ShiftHeader brief={brief} title={open ? `Readiness: ${open} ${open === 1 ? "gap" : "gaps"} to close` : "Readiness: all aircraft ready"} />
+      <ShiftHeader brief={brief} title="Readiness before the shift" />
       <div className="grid">
         <Card>
           <CardHead title="Aircraft tonight" />
@@ -31,8 +31,10 @@ export default async function ReadinessPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.tail}>
-                  <td data-l="Aircraft" className="t-data">
-                    {r.tail}
+                  <td data-l="Aircraft">
+                    <Link href={`/aircraft/${r.tail}`} className="t-data link">
+                      {r.tail}
+                    </Link>
                   </td>
                   <td data-l="Departs">{r.departure}</td>
                   {(["parts", "tools", "manuals"] as const).map((k) => (
@@ -49,7 +51,7 @@ export default async function ReadinessPage() {
           </table>
         </Card>
         <aside className="col">
-          <ReadinessGapsCard brief={brief} />
+          <ReadinessGapsCard gaps={brief.readinessGaps} sentAt={brief.readinessSentAt} engineers={engineers} actions />
         </aside>
       </div>
     </>

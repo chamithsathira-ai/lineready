@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, FileText, GraduationCap, Info, ListChecks, OctagonAlert } from "lucide-react";
-import type { EvidenceRef, Status } from "@/lib/types";
+import { Check, GraduationCap, Info, ListChecks, OctagonAlert } from "lucide-react";
+import type { Status } from "@/lib/types";
 
 const STATUS_META: Record<Status, { icon: typeof Info; label: string }> = {
   act: { icon: OctagonAlert, label: "Act before departure" },
@@ -82,31 +82,7 @@ export function CardHead({ kicker, title, right }: { kicker?: string; title: str
   );
 }
 
-/** A full-width, 48 px+ source row. Opens the record, manual task or rule it points to. */
-export function SourceRow({ evidence, title, href }: { evidence: EvidenceRef; title?: string; href?: string }) {
-  const body = (
-    <>
-      <span className="ico ico-neutral">
-        <FileText size={20} aria-hidden />
-      </span>
-      <span className="src-text">
-        <span className="t-data">{evidence.id}</span>
-        {title && <span className="t-caption">{title}</span>}
-      </span>
-      <span className="grow" />
-      <ChevronRight size={20} className="muted" aria-hidden />
-    </>
-  );
-  return href ? (
-    <Link href={href} className="src">
-      {body}
-    </Link>
-  ) : (
-    <button type="button" className="src" aria-label={`Open source ${evidence.id}`}>
-      {body}
-    </button>
-  );
-}
+export { SourceRow, SourceChip } from "./SourceButton";
 
 export function Meter({ value, total, label, tone = "ok", width }: { value: number; total: number; label: string; tone?: "ok" | "train"; width?: number | string }) {
   const pct = total ? Math.round((value / total) * 100) : 0;

@@ -22,7 +22,7 @@ export default async function TonightPage() {
           <AircraftGroups brief={brief} />
         </div>
         <aside className="col">
-          <ReadinessGapsCard brief={brief} />
+          <ReadinessGapsCard gaps={brief.readinessGaps} sentAt={brief.readinessSentAt} />
           <HandoverCard brief={brief} />
           <ResponsibilityNote />
         </aside>

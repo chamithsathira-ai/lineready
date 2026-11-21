@@ -16,7 +16,7 @@ export default async function AircraftPage() {
         {brief.aircraft.map((a) => {
           const n = brief.items.filter((i) => i.tail === a.tail).length;
           return (
-            <Link key={a.tail} href={`/tonight#ac-${a.tail}`} className="card tile">
+            <Link key={a.tail} href={`/aircraft/${a.tail}`} className="card tile">
               <div className="row">
                 <span className="ac-tail">{a.tail}</span>
                 <span className="grow" />

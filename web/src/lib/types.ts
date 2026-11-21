@@ -149,3 +149,26 @@ export interface AskExchange {
   caution: string;
   evidence: EvidenceRef[];
 }
+
+/** A preview of a source record, shown in the source viewer. */
+export interface SourceRecord {
+  id: string;
+  system: string; // "AMOS", "AVIATAR", "PHA", "Manuals", "Stores", "Rules", "Tech log", "Tools"
+  title: string;
+  fields: [string, string][];
+  excerpt?: string;
+  manualTaskId?: string;
+}
+
+export interface SearchEntry {
+  kind: "aircraft" | "item" | "manual" | "part";
+  label: string;
+  detail: string;
+  href: string;
+  terms: string;
+}
+
+export interface Engineer {
+  id: string;
+  name: string;
+}

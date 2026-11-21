@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Info, Mic, Send } from "lucide-react";
 import type { AskExchange } from "@/lib/types";
+import { SourceChip } from "@/components/ui";
 
 type Turn = AskExchange | { question: string; pending: true };
 
 /** Ask: every answer quotes its sources, or says nothing was found. */
-export function AskChat({ exchanges, suggestions }: { exchanges: AskExchange[]; suggestions: string[] }) {
+export function AskChat({ exchanges, suggestions, initialQuestion }: { exchanges: AskExchange[]; suggestions: string[]; initialQuestion?: string }) {
   const [turns, setTurns] = useState<Turn[]>(exchanges);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialQuestion ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (initialQuestion) inputRef.current?.focus();
+  }, [initialQuestion]);
 
   const ask = (q: string) => {
     const question = q.trim();
@@ -41,9 +46,7 @@ export function AskChat({ exchanges, suggestions }: { exchanges: AskExchange[]; 
                 </p>
                 <div className="row wrap">
                   {t.evidence.map((e) => (
-                    <button key={e.id} type="button" className="chip">
-                      {e.id}
-                    </button>
+                    <SourceChip key={e.id} evidence={e} />
                   ))}
                 </div>
               </div>
@@ -52,7 +55,7 @@ export function AskChat({ exchanges, suggestions }: { exchanges: AskExchange[]; 
         ))}
       </div>
       <form className="composer" onSubmit={onSubmit}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask about a tail, fault or task" aria-label="Question" />
+        <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask about a tail, fault or task" aria-label="Question" />
         <button type="button" className="btn btn-secondary btn-icon" aria-label="Ask by voice (coming later)" disabled>
           <Mic size={18} aria-hidden />
         </button>

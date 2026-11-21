@@ -1,6 +1,6 @@
-import { BookOpen } from "lucide-react";
 import { getCoachExercise } from "@/lib/api";
-import { Card, Meter, SourceRow, StatusBadge } from "@/components/ui";
+import { Card, Meter, StatusBadge } from "@/components/ui";
+import { CoachPractice } from "@/components/CoachPractice";
 
 export default async function CoachPage() {
   const ex = await getCoachExercise();
@@ -12,20 +12,9 @@ export default async function CoachPage() {
         <p className="muted">{ex.intro}</p>
       </header>
       <div className="grid">
+        <CoachPractice exercise={ex} />
         <Card>
-          {ex.feedback.map((f) => (
-            <div key={f.label} className="row wrap" style={{ alignItems: "flex-start", gap: 12 }}>
-              <StatusBadge status={f.status}>{f.label}</StatusBadge>
-              <p className="grow">{f.text}</p>
-            </div>
-          ))}
-          <SourceRow evidence={ex.hint} title="See the fault index rows" href="/manuals" />
-        </Card>
-        <Card>
-          <p className="t-caption row">
-            <BookOpen size={16} aria-hidden />
-            Competency
-          </p>
+          <p className="t-caption">Competency</p>
           <h2 className="t-heading">{ex.competency.name}</h2>
           <p className="t-display">
             {ex.competency.met} of {ex.competency.total}

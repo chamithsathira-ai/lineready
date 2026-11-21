@@ -58,6 +58,7 @@ export const mockDossiers: Dossier[] = [
       { when: "20 Nov 21:02", text: "Readiness gap sent: brake assembly in stores is unserviceable." },
     ],
     nextStep: "Use the health prediction to guide the brake inspection during the night stop.",
+    manualTaskId: "tsm-32-42-00-810-923-a",
     history: [],
     revision: "TSM rev 01 Nov 2026",
     references: [{ id: "TSM 32-42-00-810-923-A", title: "BRAKES HOT fault isolation", exact: true }],
@@ -90,6 +91,33 @@ export const mockManualTasks: ManualTask[] = [
       "If no damage, swap MMR 1 and MMR 2 and repeat the test.",
     ],
   },
+  {
+    id: "tsm-32-42-00-810-923-a",
+    title: "BRAKES HOT fault isolation",
+    revision: "Controlled revision 01 Nov 2026 · current",
+    effectivity: "A321",
+    fromDossier: "a6-aoj-brake",
+    steps: [
+      "Read the brake temperature history on the BSCU.",
+      "Compare Brake 1 with the other brakes on the same gear.",
+      "If Brake 1 is higher by more than the limit in table 101, inspect the brake for dragging.",
+      "Record findings. Replace the brake only if the inspection confirms the fault.",
+    ],
+  },
+  {
+    id: "amm-34-36-00-710-801",
+    title: "MMR operational test",
+    revision: "Controlled revision 01 Nov 2026 · current",
+    effectivity: "A320",
+    fromDossier: "a6-arm-34-52",
+    steps: ["Energise the aircraft electrical network.", "Start the MMR test from the MCDU maintenance menu.", "Confirm the test result is PASS on both MMRs."],
+  },
+];
+
+export const engineers = [
+  { id: "b1", name: "Engineer B1" },
+  { id: "b2", name: "Engineer B2" },
+  { id: "a1", name: "Mechanic A1" },
 ];
 
 export const mockReadiness: ReadinessRow[] = [

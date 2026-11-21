@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Check } from "lucide-react";
+import { BookOpen, Check, MessageCircle } from "lucide-react";
 import type { BriefItem, Dossier } from "@/lib/types";
 import { Card, CardHead, LinkButton, SourceRow, StatusBadge } from "@/components/ui";
 import { ReviewBar } from "./ReviewBar";
+import { manualSlug } from "@/lib/manuals";
 
 type Tab = "summary" | "history" | "refs" | "parts";
 const TABS: { id: Tab; label: string }[] = [
@@ -23,9 +24,15 @@ function Empty({ text }: { text: string }) {
   );
 }
 
-export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefItem }) {
+export function DossierView({ dossier, item, manualIds }: { dossier: Dossier; item: BriefItem; manualIds: string[] }) {
   const [tab, setTab] = useState<Tab>("summary");
-  const manualHref = dossier.manualTaskId ? `/manuals?task=${dossier.manualTaskId}` : undefined;
+  const manualHref = dossier.manualTaskId ? `/manuals/${dossier.manualTaskId}` : undefined;
+  const refHref = (ref: string) => {
+    const slug = manualSlug(ref);
+    const match = manualIds.find((id) => id === slug || id.startsWith(slug + "-"));
+    return match ? `/manuals/${match}` : undefined;
+  };
+  const askHref = `/ask?q=${encodeURIComponent(`${item.tail}: ${item.title} What should I check first?`)}`;
 
   return (
     <>
@@ -58,13 +65,16 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
             <Card>
               <h2 className="t-heading">Suggested next step</h2>
               <p>{dossier.nextStep}</p>
-              {manualHref && (
-                <div>
+              <div className="row wrap">
+                {manualHref && (
                   <LinkButton href={manualHref} icon={<BookOpen size={18} aria-hidden />}>
-                    Open TSM task
+                    Open manual task
                   </LinkButton>
-                </div>
-              )}
+                )}
+                <LinkButton href={askHref} kind="secondary" icon={<MessageCircle size={18} aria-hidden />}>
+                  Ask about this
+                </LinkButton>
+              </div>
             </Card>
             <Card>
               <h2 className="t-heading">Sources</h2>
@@ -121,7 +131,7 @@ export function DossierView({ dossier, item }: { dossier: Dossier; item: BriefIt
               </div>
             )}
             {dossier.references.map((r) => (
-              <SourceRow key={r.id} evidence={{ id: r.id, kind: "manual" }} title={r.title} href={r.id.startsWith("TSM") && manualHref ? manualHref : undefined} />
+              <SourceRow key={r.id} evidence={{ id: r.id, kind: "manual" }} title={r.title} href={refHref(r.id)} />
             ))}
           </Card>
         ) : (

@@ -1,6 +1,6 @@
 import { ChevronRight, MessageCircle } from "lucide-react";
 import type { BriefItem, ShiftBrief } from "@/lib/types";
-import { LinkButton, StatusBadge } from "@/components/ui";
+import { LinkButton, SourceChip, StatusBadge } from "@/components/ui";
 import { timeLeft } from "@/lib/format";
 
 /** The one thing to do first. Replaces the old stat tiles. */
@@ -43,11 +43,13 @@ export function NextUpCard({ brief, item }: { brief: ShiftBrief; item: BriefItem
         <LinkButton href={`/dossier/${item.dossierId ?? item.id}`}>
           Open dossier <ChevronRight size={18} aria-hidden />
         </LinkButton>
-        <LinkButton href="/ask" kind="secondary" icon={<MessageCircle size={18} aria-hidden />}>
+        <LinkButton href={`/ask?q=${encodeURIComponent(`${item.tail}: ${item.title} What should I check first?`)}`} kind="secondary" icon={<MessageCircle size={18} aria-hidden />}>
           Ask about this
         </LinkButton>
-        <span className="t-caption">
-          {item.evidence.length} sources: {item.evidence.map((e) => e.id).join(", ")}
+        <span className="row wrap" aria-label="Sources">
+          {item.evidence.map((e) => (
+            <SourceChip key={e.id} evidence={e} />
+          ))}
         </span>
       </div>
     </section>
